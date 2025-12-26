@@ -1,0 +1,9 @@
+[submodule "multiversa"]
+	path = multiversa
+	url = https://github.com/heymouoficial/multiversa.git
+[submodule "CalculaTu"]
+	path = CalculaTu
+	url = https://github.com/heymouoficial/CalculaTu
+[submodule "HeyMode"]
+	path = HeyMode
+	url = https://github.com/heymouoficial/HeyMode
