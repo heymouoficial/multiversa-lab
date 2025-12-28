@@ -9,6 +9,7 @@
 ## Backend/API
 *   Node.js
 *   Supabase Edge Functions
+*   Google Gemini (Flash Models - 1.5/2.0)
 
 ## Database
 *   Supabase

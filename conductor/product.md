@@ -40,6 +40,11 @@ A "Mobile-First Agresiva" financial survival tool for Venezuelan consumers.
 - **Anti-Warp:** Prevents session cloning/sharing.
 - **Validation:** Offline-first validation using signed JWTs (Tokens).
 
+## ⚡ Quota & Performance Optimization (Free Tier)
+- **Flash Model Strategy:** Enforces the use of `gemini-1.5-flash-latest` to maximize RPM (15 RPM) and minimize costs.
+- **Time-Bomb (Silence Detection):** Automatic WebSocket disconnection after 60 seconds of inactivity to preserve RPD (Requests Per Day).
+- **Graceful Degradation:** Implementation of error handling for `429 Resource Exhausted` with user-friendly feedback (Toasts).
+
 ## 📂 Key File Locations
 - **Pricing UI:** `CalculaTu/App.tsx` (Pricing Section).
 - **Promo Logic:** `CalculaTu/components/PromotionBanner.tsx`.
