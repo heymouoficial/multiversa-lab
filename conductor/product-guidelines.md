@@ -1,11 +1,16 @@
-# Product Guidelines: Multiversa Lab
+# Product Guidelines: CalculaTú
 
-## Tone and Voice
-The Multiversa Lab project will adopt a hybrid tone and voice across its various applications and communications, tailored to the specific context while maintaining overall clarity and user-centricity.
+## UX Imperatives
+1. **The Thumb Zone Rule:** All primary actions (Add, Pay, Mic) must be reachable with the thumb in the bottom 30% of the screen.
+2. **Latency Zero:** UI feedback must occur in <100ms. Use skeletons and optimistic updates.
+3. **Bunker Mode:** App must be usable without internet. Assume 24h stale rate for BCV if offline.
 
-*   **Professional and Reliable:** For topics concerning finance (e.g., CalculaTú) and automation, the communication will be professional and trustworthy, instilling confidence and credibility.
-*   **Visionary:** When discussing the broader ecosystem and future outlook of Multiversa Lab, the tone will be visionary and forward-looking, inspiring engagement and highlighting innovation.
-*   **Warm and Supportive:** For applications focused on well-being and consciousness (e.g., HeyMode), the tone will be warm, empathetic, and supportive, fostering a sense of connection and guidance.
+## Design System (Liquid Glass)
+- **Background:** Mesh gradients, never solid black.
+- **Panels:** `bg-white/5` + `backdrop-blur-xl` + `border-white/10`.
+- **Accents:** Neon Lime (#ccff00) for success/action, Emerald for trust, Purple for Savara.
 
-## Language
-All communications will use clear, neutral Spanish, actively avoiding unnecessary technical jargon to ensure accessibility and understanding for a broad audience.
+## Security Standards
+- Never log user license tokens or machine IDs in production logs.
+- All license validation is local and cryptographic.
+- Use `machineID` as the primary key for user context, not email.

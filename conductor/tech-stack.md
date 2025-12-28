@@ -1,17 +1,24 @@
-# Technology Stack: Multiversa Lab
+# Tech Stack: CalculaTú (Production 2026)
 
-## Programming Languages
-*   TypeScript/JavaScript
+## Core
+- **Framework:** React 19 + Vite 6.
+- **Language:** TypeScript (Strict Mode).
+- **State Management:** Zustand (App Store) + TanStack Query (Server State & Cache).
 
-## Frontend Frameworks
-*   React (with Vite)
+## AI & Audio
+- **LLM Provider:** Google Gemini API (v1 / v1beta).
+- **Models:** 
+  - `gemini-2.5-flash` (Chat/Text).
+  - `gemini-2.5-flash-native-audio-dialog` (Voice/Websocket).
+- **Audio Processing:** AudioWorklet (PCM Processor) @ 16kHz/24kHz.
 
-## Backend/API
-*   Node.js
-*   Supabase Edge Functions
-*   Google Gemini (Flash Models - 1.5/2.0)
+## Backend & Database
+- **Provider:** Supabase.
+- **Database:** PostgreSQL with `pgvector` for RAG.
+- **Functions:** Edge Functions (Deno) for document ingestion and license logic.
 
-## Database
-*   Supabase (PostgreSQL)
-*   pgvector (Vector Embeddings for RAG)
-*   Pinecone (Legacy/Alternative)
+## UI & Styling
+- **Engine:** Tailwind CSS 4 (CSS-first configuration).
+- **Icons:** Lucide React.
+- **Animations:** CSS Keyframes + Framer Motion.
+- **Aesthetic:** Liquid Glass / Glassmorphism.

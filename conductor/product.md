@@ -1,7 +1,7 @@
-# Product Context: CalculaTú (Supermarket Survival)
+# Product Context: CalculaTú (Late 2025 Edition)
 
-**Current Version:** Beta 1.0 (Live)
-**Last Updated:** Dec 28, 2025
+**Current Version:** Beta 2.0 (Stable)
+**Last Updated:** Dec 29, 2025
 
 ## 🎯 Core Value Proposition
 A "Mobile-First Agresiva" financial survival tool for Venezuelan consumers. 
@@ -9,56 +9,25 @@ A "Mobile-First Agresiva" financial survival tool for Venezuelan consumers.
 - **Voice-First:** "Savara AI" acts as a shopping co-pilot via audio.
 - **Zero Friction:** One-handed usage, instant currency conversion.
 
-## 💰 Monetization & Pricing Strategy (Launch Promo)
+## 💰 Monetization & Pricing Strategy (The "CalculaTú" Model)
 
-**1. Freepass (Trial)**
-- **Cost:** Free.
-- **Validity:** Until **January 1st, 2026** (New Year's Gift).
-- **Benefit:** Full access to Savara Pro features for free during this period.
-- **Trigger:** Auto-activated via "PromotionBanner" component.
+**1. Base Plans (Subscription / License)**
+* **Monthly Plan (Pro Mensual):** $1 / month (Promo) | $3 (Regular). Includes 30 min of Voice/month.
+* **Lifetime Plan (Pro Lifetime):** $10 One-time (Promo) | $20 (Regular). Includes 60 min of Voice/month.
 
-**2. Monthly Plan (Pro Mensual)**
-- **Current Promo:** **$1 / month** (Regular Price: $3).
-- **Offer Valid Until:** January 1st, 2026.
-- **Limits:** 30 Minutes of Voice Interaction / month.
-- **Features:** Voice Assistant, Purchase History, offline sync.
+**2. Pay-As-You-Go (Recargas / Top-ups)**
+* **Logic:** Hard caps on minutes. Overages require a $1 top-up for additional credits.
 
-**3. Lifetime Plan (Pro Lifetime)**
-- **Current Promo:** **$10 One-time** (Regular Price: $20).
-- **Offer Valid Until:** **January 31st, 2026**.
-- **Limits:** 60 Minutes of Voice Interaction / month (Renewed monthly forever).
-- **Features:** Priority Support, Early Access, No monthly fees ever.
+## 🧠 AI Intelligence (Savara)
+- **Text Engine:** `gemini-2.5-flash` (Optimized for speed/cost).
+- **Voice Engine:** `gemini-2.5-flash-native-audio-dialog` (Live Bidi API).
+- **Context:** Aware of real-time BCV rates, user profile, and license status.
 
-## 🧠 AI Personality (Savara)
-- **Role:** Efficient Shopping Assistant.
-- **Tone:** Concise (max 30 words), helpful, Venezuelan context-aware.
-- **Knowledge:** Real-time BCV rates, pricing conversion logic.
-- **Memory (RAG):** "Portality Brain" allows injection of PDF/Text knowledge base, enabling Savara to answer questions about specific uploaded documents.
-- **Prompt Logic:** System prompt is dynamically injected with current pricing/promo data (see `services/geminiService.ts`).
+## 🎨 UI/UX Aesthetic: Liquid Glass
+- **Theme:** Dark Opal (#050505 base).
+- **Effects:** Backdrop blur, translucent panels, neon-lime accents.
+- **Layout:** Thumb-zone optimization (all main controls in the bottom third).
 
-## 🎛️ Admin Dashboard (Portality)
-- **Rates Management:** Visualize trends (1D/3D/7D) and manually override rates.
-- **License Forge:** Generate tokens, assign "Freepass" (Trial extension) with quick shortcuts (+7D, +1M).
-- **System Pulse:** Real-time logs of system health (Supabase, Gemini, Auth) with source tracking.
-- **Brain Management:** Upload and manage RAG knowledge base files.
-- **Anti-Warp:** Prevents session cloning/sharing.
-- **Validation:** Offline-first validation using signed JWTs (Tokens).
-
-## ⚡ Quota & Performance Optimization (Free Tier)
-- **Flash Model Strategy:** Enforces the use of `gemini-1.5-flash-latest` to maximize RPM (15 RPM) and minimize costs.
-- **Time-Bomb (Silence Detection):** Automatic WebSocket disconnection after 60 seconds of inactivity to preserve RPD (Requests Per Day).
-- **Graceful Degradation:** Implementation of error handling for `429 Resource Exhausted` with user-friendly feedback (Toasts).
-
-## 📂 Key File Locations
-- **Pricing UI:** `CalculaTu/App.tsx` (Pricing Section).
-- **Promo Logic:** `CalculaTu/components/PromotionBanner.tsx`.
-- **System Prompt:** `CalculaTu/services/geminiService.ts`.
-- **License Logic:** `CalculaTu/utils/license.ts` & `CalculaTu/store/useLicenseStore.ts`.
-
----
-
-# Broader Ecosystem (Multiversa Lab)
-*Legacy Context*
-Multiversa Lab orchestrates this ecosystem. Other projects include:
-- **HeyMode:** Wellness & Consciousness.
-- **Multiversa:** Business Automation.
+## 🛡️ Security
+- **Device Lock:** Cryptographic binding to `MachineID`.
+- **Validation:** Offline-first JWT verification.
