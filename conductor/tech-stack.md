@@ -12,5 +12,6 @@
 *   Google Gemini (Flash Models - 1.5/2.0)
 
 ## Database
-*   Supabase
-*   Pinecone (for vector embeddings)
+*   Supabase (PostgreSQL)
+*   pgvector (Vector Embeddings for RAG)
+*   Pinecone (Legacy/Alternative)

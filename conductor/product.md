@@ -33,10 +33,14 @@ A "Mobile-First Agresiva" financial survival tool for Venezuelan consumers.
 - **Role:** Efficient Shopping Assistant.
 - **Tone:** Concise (max 30 words), helpful, Venezuelan context-aware.
 - **Knowledge:** Real-time BCV rates, pricing conversion logic.
+- **Memory (RAG):** "Portality Brain" allows injection of PDF/Text knowledge base, enabling Savara to answer questions about specific uploaded documents.
 - **Prompt Logic:** System prompt is dynamically injected with current pricing/promo data (see `services/geminiService.ts`).
 
-## 🛡️ Security & Licensing
-- **Device Lock:** Licenses are cryptographically bound to `MachineID` (Browser Fingerprint).
+## 🎛️ Admin Dashboard (Portality)
+- **Rates Management:** Visualize trends (1D/3D/7D) and manually override rates.
+- **License Forge:** Generate tokens, assign "Freepass" (Trial extension) with quick shortcuts (+7D, +1M).
+- **System Pulse:** Real-time logs of system health (Supabase, Gemini, Auth) with source tracking.
+- **Brain Management:** Upload and manage RAG knowledge base files.
 - **Anti-Warp:** Prevents session cloning/sharing.
 - **Validation:** Offline-first validation using signed JWTs (Tokens).
 
