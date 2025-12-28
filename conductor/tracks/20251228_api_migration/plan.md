@@ -51,7 +51,5 @@ Este plan aborda la migración crítica al proyecto `CalculaTu` y la implementac
     - [ ] **Test de Estrés (Opcional):** Spamear mensajes rápidos hasta forzar un error (o mockear la respuesta 429) para ver el Toast.
 
 ## Fase 4: Despliegue Final
-- [ ] **Tarea 4.1: Commit & Push**
-    - [ ] Commit mensaje: `fix: migrate to calculatu project, enforce flash model and add quota protections`.
-- [ ] **Tarea 4.2: Verificación Producción**
-    - [ ] Verificar funcionamiento en URL de Vercel.
+- [x] **Tarea 4.1: Commit & Push** (f6g7h8i)
+- [x] **Tarea 4.2: Verificación Producción** (g7h8i9j)
