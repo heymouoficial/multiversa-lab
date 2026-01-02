@@ -5,6 +5,7 @@ Laboratorio central de proyectos IA:
 - `multiversa/` – Agency OS y MCP Hub comercial.
 - `CalculaTu/` – Cliente cero financiero con Savara.
 - `HeyMode/` – Sistema operativo de consciencia.
+- `portality/` – Admin Dashboard y gestión de licencias.
 
 Carpetas de orquestación:
 

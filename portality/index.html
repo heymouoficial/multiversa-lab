@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>PolimataOS | Portality</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            animation: {
+              blob: "float 20s infinite ease-in-out",
+              'spin-slow': 'spin 8s linear infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+              'liquid': 'liquid 15s ease-in-out infinite',
+              'marquee': 'marquee 40s linear infinite',
+            },
+            keyframes: {
+              float: {
+                "0%": { transform: "translate(0px, 0px) scale(1)" },
+                "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+                "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+                "100%": { transform: "translate(0px, 0px) scale(1)" },
+              },
+              liquid: {
+                "0%, 100%": { borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%" },
+                "50%": { borderRadius: "30% 60% 70% 40% / 50% 60% 30% 60%" },
+              },
+              shimmer: {
+                from: { backgroundPosition: "0 0" },
+                to: { backgroundPosition: "-200% 0" },
+              },
+              marquee: {
+                "0%": { transform: "translateX(0)" },
+                "100%": { transform: "translateX(-50%)" },
+              },
+            },
+            backgroundImage: {
+               'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+               'conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+               'glass-gradient': 'linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.0) 100%)',
+            },
+            boxShadow: {
+                'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
+                'glass-inset': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+                'neon': '0 0 20px var(--primary-dim)',
+            }
+          },
+        },
+      };
+    </script>
+    <style>
+      :root {
+        /* Emerald / Real Theme Default */
+        --primary: #10b981; 
+        --primary-dim: rgba(16, 185, 129, 0.2);
+        --secondary: #0ea5e9;
+        --secondary-dim: rgba(14, 165, 233, 0.2);
+        
+        /* Liquid Palette */
+        --bg-deep: #020204;
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-bg: rgba(255, 255, 255, 0.03);
+      }
+
+      body {
+        background-color: var(--bg-deep);
+        color: #e5e7eb;
+      }
+
+      /* Noise Texture for Depth */
+      .bg-noise {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.03;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      }
+
+      /* Liquid Glass Component Class */
+      .liquid-glass {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass), var(--glass-inset);
+      }
+
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      .text-theme-primary { color: var(--primary); }
+      .bg-theme-primary { background-color: var(--primary); }
+      .border-theme-primary { border-color: var(--primary); }
+      .text-theme-secondary { color: var(--secondary); }
+      
+      /* Duotone Icon Helper */
+      .icon-duotone {
+        fill: currentColor;
+        fill-opacity: 0.15;
+      }
+      .dark .icon-duotone {
+        fill-opacity: 0.2;
+      }
+
+      /* Data Widget / Markdown Styles for Chat */
+      .prose-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0.5rem 0;
+        font-size: 0.75rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 0.75rem;
+        overflow: hidden;
+        background: rgba(0,0,0,0.2);
+      }
+      .prose-table th {
+        background: rgba(255,255,255,0.05);
+        color: var(--primary);
+        font-weight: 600;
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.65rem;
+      }
+      .prose-table td {
+        padding: 0.5rem 0.75rem;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        color: #e5e7eb;
+      }
+      .prose-ul {
+        list-style-type: none;
+        padding-left: 0;
+        margin: 0.5rem 0;
+      }
+      .prose-ul li {
+        position: relative;
+        padding-left: 1.25rem;
+        margin-bottom: 0.25rem;
+      }
+      .prose-ul li::before {
+        content: "•";
+        position: absolute;
+        left: 0.25rem;
+        color: var(--primary);
+        font-weight: bold;
+      }
+      .prose-strong {
+        color: white;
+        font-weight: 600;
+      }
+      .prose-code {
+        font-family: monospace;
+        background: rgba(0,0,0,0.3);
+        padding: 0.1rem 0.3rem;
+        border-radius: 0.25rem;
+        color: var(--secondary);
+        font-size: 0.9em;
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.7"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="antialiased min-h-screen relative overflow-x-hidden selection:bg-emerald-500/30 transition-colors duration-300">
+    <div class="bg-noise"></div>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

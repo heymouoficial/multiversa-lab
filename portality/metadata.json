@@ -1,0 +1,8 @@
+{
+  "name": "PolimataOS - Portality",
+  "description": "The Business Operating System. Powered by Multiversa.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
