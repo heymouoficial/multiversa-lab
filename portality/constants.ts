@@ -1,5 +1,5 @@
-export const GEMINI_LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-09-2025';
-export const GEMINI_SEARCH_MODEL = 'gemini-2.0-flash'; // Switched to 2.0 Flash for stable stateless tool use
+export const GEMINI_LIVE_MODEL = 'gemini-2.0-flash-exp';
+export const GEMINI_SEARCH_MODEL = 'gemini-2.0-flash-exp'; // Switched to 2.0 Flash Exp for stability
 export const GEMINI_THINKING_MODEL = 'gemini-3-pro-preview';
 
 export const SYSTEM_INSTRUCTION = `Eres Aureon, la Inteligencia Central de PolimataOS (Powered by Multiversa).

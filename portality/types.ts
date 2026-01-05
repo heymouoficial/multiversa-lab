@@ -1,4 +1,21 @@
 
+export interface Client {
+  id: string;
+  name: string;
+  type: 'fixed' | 'project';
+  status: 'active' | 'paused' | 'risk';
+  logo?: string;
+  notion_id?: string;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  clientId: string;
+  responsibleId?: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -7,6 +24,19 @@ export interface Task {
   completed: boolean;
   assignedTo?: string; // User ID or Initials
   tags?: string[]; // For Kanban context
+  clientId?: string;
+  serviceId?: string;
+  deadline?: Date;
+  organizationId?: string; // For privacy filtering (e.g. 'ELEVAT/AGORA')
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  startTime: Date;
+  type: 'meeting' | 'deadline' | 'reminder';
+  link?: string;
+  description?: string;
 }
 
 export interface Lead {
@@ -48,6 +78,9 @@ export interface UserProfile {
   avatar: string; // Initials or Image URL
   theme: string; // Each user can have a preferred accent
   openRouterKey?: string; // Optional: User provided key
+  organizationId?: string;
+  lastActivity?: number; // Timestamp for 90-min session expiry
+  layoutConfig?: string[]; // IDs of widgets to display in order
 }
 
 export interface ChatMessage {
@@ -66,7 +99,7 @@ export interface ThemeColors {
   blob2: string;
 }
 
-export type ViewState = 'home' | 'board' | 'flow' | 'report' | 'knowledge' | 'profile';
+export type ViewState = 'home' | 'agency' | 'flow' | 'profile';
 
 export enum AudioState {
   IDLE = 'idle',

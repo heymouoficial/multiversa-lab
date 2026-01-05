@@ -1,0 +1,13 @@
+services:
+  portality-personal:
+    build: .
+    container_name: portality-personal
+    ports:
+      - "3001:3000"
+    environment:
+      - VITE_APP_BRAND=astursadeth
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - VITE_NOTION_TOKEN=${VITE_NOTION_TOKEN}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    restart: unless-stopped

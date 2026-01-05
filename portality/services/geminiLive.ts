@@ -46,7 +46,7 @@ export class GeminiLiveService {
   private nextStartTime: number = 0;
   private callbacks: LiveSessionCallbacks;
   private gainNode: GainNode | null = null;
-  
+
   constructor(callbacks: LiveSessionCallbacks) {
     this.client = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     this.callbacks = callbacks;
@@ -57,8 +57,10 @@ export class GeminiLiveService {
 
     try {
       this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      await this.inputAudioContext.audioWorklet.addModule('/pcm-processor.js');
+
       this.outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      
+
       // Create Gain Node to boost volume
       this.gainNode = this.outputAudioContext.createGain();
       this.gainNode.gain.value = 3.0; // Boost volume by 300%
@@ -112,30 +114,32 @@ export class GeminiLiveService {
     if (!this.inputAudioContext || !this.stream) return;
 
     this.inputSource = this.inputAudioContext.createMediaStreamSource(this.stream);
-    this.processor = this.inputAudioContext.createScriptProcessor(4096, 1, 1);
+    // Use AudioWorklet instead of ScriptProcessor
+    const workletNode = new AudioWorkletNode(this.inputAudioContext, 'pcm-processor');
+    this.processor = workletNode as any; // Cast for compatibility with disconnect logic
 
-    this.processor.onaudioprocess = async (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcm16 = float32ToInt16(inputData);
-      const base64Data = arrayBufferToBase64(pcm16.buffer);
+    workletNode.port.onmessage = (event) => {
+      const pcm16Buffer = event.data; // ArrayBuffer
+      const base64Data = arrayBufferToBase64(pcm16Buffer);
 
       sessionPromise.then(session => {
         session.sendRealtimeInput({
-            media: {
-                mimeType: 'audio/pcm;rate=16000',
-                data: base64Data
-            }
+          media: {
+            mimeType: 'audio/pcm;rate=16000',
+            data: base64Data
+          }
         });
       });
     };
 
-    this.inputSource.connect(this.processor);
-    this.processor.connect(this.inputAudioContext.destination);
+    this.inputSource.connect(workletNode);
+    // workletNode does not need to connect to destination if it doesn't output audio
+    // but typically we don't connect input mic to output speakers to avoid feedback
   }
 
   private async handleServerMessage(message: LiveServerMessage, sessionPromise: Promise<any>) {
     const serverContent = message.serverContent;
-    
+
     if (serverContent?.modelTurn?.parts?.[0]?.inlineData) {
       this.callbacks.onAudioData?.(true);
       const base64Audio = serverContent.modelTurn.parts[0].inlineData.data;
@@ -146,25 +150,25 @@ export class GeminiLiveService {
       for (const fc of message.toolCall.functionCalls) {
         console.log("Tool Call Received:", fc);
         let result: any = { result: 'ok' };
-        
+
         if (this.callbacks.onToolCall) {
-            try {
-                const output = await this.callbacks.onToolCall(fc.name, fc.args);
-                result = output || { result: 'ok' };
-            } catch (e) {
-                console.error("Tool execution failed", e);
-                result = { error: 'Failed to execute tool' };
-            }
+          try {
+            const output = await this.callbacks.onToolCall(fc.name, fc.args);
+            result = output || { result: 'ok' };
+          } catch (e) {
+            console.error("Tool execution failed", e);
+            result = { error: 'Failed to execute tool' };
+          }
         }
 
         sessionPromise.then(session => {
-            session.sendToolResponse({
-                functionResponses: [{
-                    id: fc.id,
-                    name: fc.name,
-                    response: result
-                }]
-            });
+          session.sendToolResponse({
+            functionResponses: [{
+              id: fc.id,
+              name: fc.name,
+              response: result
+            }]
+          });
         });
       }
     }
@@ -175,7 +179,7 @@ export class GeminiLiveService {
     }
 
     if (serverContent?.turnComplete) {
-       this.callbacks.onAudioData?.(false);
+      this.callbacks.onAudioData?.(false);
     }
   }
 
@@ -204,8 +208,8 @@ export class GeminiLiveService {
 
   disconnect() {
     if (this.session) {
-        try { /* this.session.close(); */ } catch(e) {}
-        this.session = null;
+      try { /* this.session.close(); */ } catch (e) { }
+      this.session = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());

@@ -1,290 +1,273 @@
 import React from 'react';
-import { Wallet, TrendingUp, Check, Radar, MoreHorizontal, CalendarClock, FileText, ArrowUpRight, Database, Zap, MessageCircle, Send, CreditCard, Mail, Activity, Hourglass } from 'lucide-react';
-import { Task, Lead, NotionPage, UserProfile } from '../types';
+import { 
+    Database, Zap, Check, Users, Target, CheckSquare, 
+    Calendar, Clock, LayoutGrid, Plus, ArrowUpRight, 
+    Mic, MessageSquare, Briefcase, Activity, AlertTriangle,
+    FileText as FileIcon
+} from 'lucide-react';
+import { Task, Lead, NotionPage, UserProfile, ViewState, CalendarEvent, Client } from '../types';
+import { getCurrentBrand } from '../config/branding';
+
+const brand = getCurrentBrand();
 
 interface DashboardProps {
-  user: UserProfile;
-  tasks: Task[];
-  leads: Lead[];
-  notionDocs: NotionPage[];
+    user: UserProfile;
+    tasks: Task[];
+    leads: Lead[];
+    notionDocs: NotionPage[];
+    events: CalendarEvent[];
+    clients: Client[];
+    trainingMode?: { active: boolean; reason: string };
+    onNavigate: (view: ViewState) => void;
+    onToggleTask?: (id: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, tasks, leads, notionDocs }) => {
-  return (
-    <main className="flex flex-col gap-6 px-6 pb-28">
-        
-        {/* F1: Financial Pulse / System Pulse (Context Aware) */}
-        {/* Domino: Delay 0 */}
-        <section className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-0 relative overflow-hidden rounded-[30px] p-6 liquid-glass group">
-            
-            {/* Liquid Background Gradient (Subtle) */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent opacity-100 pointer-events-none"></div>
-            
-            {/* GRAPHIC ENGINE: Background Icon */}
-            <div className="absolute -right-6 -bottom-12 text-theme-primary opacity-[0.05] group-hover:opacity-[0.1] transition-opacity duration-700 pointer-events-none rotate-[-12deg]">
-                <Activity size={220} strokeWidth={1} />
-            </div>
-
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-theme-primary opacity-20 blur-[50px] rounded-full group-hover:opacity-30 transition-opacity duration-500"></div>
-            
-            <div className="relative z-10">
-                <div className="flex justify-between items-start mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-theme-primary shadow-glass-inset">
-                            <Wallet size={22} strokeWidth={1.5} className="icon-duotone" />
+const Dashboard: React.FC<DashboardProps> = ({ user, tasks, leads, notionDocs, events, clients, trainingMode, onNavigate, onToggleTask }) => {
+    
+    const activeTasks = tasks.filter(t => !t.completed);
+    
+    // WIDGET REGISTRY
+    const WIDGETS: Record<string, React.ReactNode> = {
+        status: (
+            <div key="status" className="col-span-full flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02] border border-white/5 p-6 rounded-[2.5rem] liquid-glass">
+                <div className="flex-1 w-full md:w-auto">
+                    <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl" style={{ backgroundColor: `${brand.colors.primary}1a`, borderColor: `${brand.colors.primary}33` }}>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Database size={24} style={{ color: brand.colors.primary }} />
+                            <h2 className="text-sm font-bold text-white">EST. DEL SISTEMA</h2>
                         </div>
-                        <div>
-                            <h2 className="text-base font-semibold text-white tracking-tight">
-                                {user.id === 'moises' ? 'System Health' : 'Financial Pulse'}
-                            </h2>
-                            <p className="text-xs text-gray-400 font-medium tracking-wide">Tiempo Real</p>
-                        </div>
-                    </div>
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-theme-secondary bg-theme-secondary/10 px-3 py-1.5 rounded-full border border-theme-secondary/20 shadow-[0_0_10px_var(--secondary-dim)]">
-                        <TrendingUp size={14} strokeWidth={2} />
-                        {user.id === 'moises' ? '99.9%' : '+12%'}
-                    </span>
-                </div>
-
-                <div className="flex flex-col gap-1 mb-8">
-                    <span className="text-sm font-medium text-gray-400">
-                        {user.id === 'moises' ? 'CPU Load (Vercel/Supabase)' : 'Ingresos Hoy (Stripe)'}
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-5xl font-bold tracking-tighter text-white drop-shadow-md">
-                            {user.id === 'moises' ? '24' : '$1,240'}
-                        </span>
-                        <span className="text-3xl font-medium text-gray-500">
-                            {user.id === 'moises' ? '%' : '.00'}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Chart Visualization */}
-                <div className="flex items-end justify-between gap-2 h-16">
-                    {[0.3, 0.5, 0.35, 0.6, 0.45, 0.7].map((h, i) => (
-                        <div key={i} className="w-full bg-white/5 rounded-full relative overflow-hidden group/bar">
-                            <div 
-                                className="absolute bottom-0 left-0 right-0 bg-white/20 rounded-full transition-all duration-500 group-hover/bar:bg-white/30 backdrop-blur-sm" 
-                                style={{ height: `${h * 100}%` }}
-                            ></div>
-                        </div>
-                    ))}
-                    {/* Active Bar with Shining Effect - Liquid Accent */}
-                    <div className="w-full h-full relative rounded-full overflow-hidden shadow-neon">
-                        <div className="absolute inset-0 bg-gradient-to-t from-theme-primary to-theme-secondary opacity-90"></div>
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent opacity-0 animate-[shimmer_2s_infinite]"></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        {/* Elevat Intelligence (RAG) */}
-        {/* Domino: Delay 100ms */}
-        <section className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
-             <div className="flex items-center justify-between px-1">
-                <h3 className="text-lg font-semibold text-white">Portality Intelligence</h3>
-                <span className="text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-1 rounded-full border border-white/5 flex items-center gap-1">
-                    <Database size={12} className="text-emerald-500 icon-duotone" />
-                    RAG Vectorial
-                </span>
-            </div>
-
-            <div className="grid gap-3">
-                {notionDocs.map(doc => (
-                    <div key={doc.id} className="group relative p-4 rounded-[24px] liquid-glass hover:bg-white/[0.05] transition-all cursor-pointer overflow-hidden border-transparent hover:border-white/10">
-                        {/* Internal Shine */}
-                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50"></div>
-                        
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xl filter drop-shadow-md grayscale group-hover:grayscale-0 transition-all duration-300">{doc.icon}</span>
-                                    <h4 className="text-base font-medium text-gray-200 group-hover:text-theme-primary transition-colors">{doc.title}</h4>
-                                </div>
-                                <ArrowUpRight size={16} className="text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-2 group-hover:translate-y-0 duration-300" />
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="text-[10px] text-gray-400">STATUS</div>
+                                <div className="w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_currentColor]" style={{ backgroundColor: brand.colors.primary, color: brand.colors.primary }}></div>
+                                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: brand.colors.primary }}>{brand.tagline}</span>
                             </div>
-                            <p className="text-sm text-gray-400 line-clamp-2 leading-relaxed pl-1 font-light">
-                                {doc.summary}
-                            </p>
-                            <div className="flex items-center gap-2 mt-3 pl-1">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-gray-400 border border-white/5">
-                                    {doc.tag}
-                                </span>
-                                <span className="text-[10px] text-gray-500 ml-auto">
-                                    Actualizado {doc.lastEdited}
-                                </span>
+                            <div className="text-[10px] font-mono text-gray-500">
+                                {new Date().toLocaleTimeString()}
                             </div>
                         </div>
                     </div>
+                </div>
+                
+                <div className="flex gap-2">
+                    <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-3">
+                        <Activity size={14} className="text-blue-400" />
+                        <span className="text-xs font-bold text-gray-300">Health: Quantum Stable</span>
+                    </div>
+                </div>
+            </div>
+        ),
+        hub: (
+            <div key="hub" className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                    { label: 'Hub Operativo', icon: <Target size={18} />, status: 'Online', color: 'text-emerald-400', view: 'agency' as ViewState },
+                    { label: 'Clientes 2026', icon: <Users size={18} />, status: `${clients.length} Activos`, color: 'text-blue-400', view: 'agency' as ViewState },
+                    { label: 'Tareas Ops', icon: <CheckSquare size={18} />, status: `${activeTasks.length} Pendientes`, color: 'text-amber-400', view: 'board' as ViewState },
+                    { label: 'Aureon Brain', icon: <Zap size={18} />, status: 'Syncing', color: 'text-purple-400', view: 'flow' as ViewState }
+                ].map((item, i) => (
+                    <button 
+                        key={i} 
+                        onClick={() => onNavigate(item.view)}
+                        className="bg-[#0a0a0c] border border-white/5 rounded-3xl p-5 hover:bg-white/[0.04] hover:border-white/10 hover:shadow-2xl transition-all cursor-pointer group liquid-glass text-left w-full active:scale-95"
+                    >
+                        <div className={`mb-4 transition-colors ${item.color}`}>{item.icon}</div>
+                        <div className="space-y-1">
+                            <div className="text-xs font-bold text-gray-300 tracking-tight group-hover:text-white transition-colors">{item.label}</div>
+                            <div className="text-[10px] text-gray-600 uppercase tracking-widest">{item.status}</div>
+                        </div>
+                    </button>
                 ))}
             </div>
-        </section>
-
-        {/* Neural Links / Integrations */}
-        {/* Domino: Delay 200ms */}
-        <section className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-            <div className="flex items-center justify-between px-1">
-                <h3 className="text-lg font-semibold text-white">Neural Links</h3>
-                <span className="text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-1 rounded-full border border-white/5 flex items-center gap-1">
-                    <Zap size={12} className="text-amber-500 icon-duotone" />
-                    1-Click Connect
-                </span>
-            </div>
-
-            <div className="rounded-[30px] p-5 liquid-glass relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 opacity-10 blur-[80px]"></div>
-                
-                <div className="flex flex-col gap-5 relative z-10">
-                    {[
-                        { id: 'wa', name: 'WhatsApp Business', icon: <MessageCircle size={18} className="icon-duotone" />, color: 'bg-[#25D366]', status: 'Connected' },
-                        { id: 'tg', name: 'Telegram Bot', icon: <Send size={18} className="icon-duotone" />, color: 'bg-[#229ED9]', status: 'Active' },
-                        { id: 'st', name: 'Stripe Payments', icon: <CreditCard size={18} className="icon-duotone" />, color: 'bg-[#635BFF]', status: 'Syncing' },
-                        { id: 'gm', name: 'Google Workspace', icon: <Mail size={18} className="icon-duotone" />, color: 'bg-[#EA4335]', status: 'Connected' },
-                    ].map((app, i) => (
-                        <div key={app.id} className="group flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg ${app.color} transition-transform group-hover:scale-110`}>
-                                    {app.icon}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold text-gray-200">{app.name}</span>
-                                    <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                                        <span className={`w-1.5 h-1.5 rounded-full ${app.status === 'Syncing' ? 'bg-amber-500 animate-pulse' : 'bg-green-500'} shadow-[0_0_5px_currentColor]`}></span>
-                                        {app.status}
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            {/* Toggle Switch Liquid */}
-                            <div className={`w-11 h-6 rounded-full relative transition-all cursor-pointer border ${app.status === 'Connected' || app.status === 'Active' ? 'bg-theme-primary/20 border-theme-primary/50' : 'bg-white/5 border-white/10'}`}>
-                                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${app.status === 'Connected' || app.status === 'Active' ? 'right-1 bg-theme-primary shadow-[0_0_8px_var(--primary)]' : 'left-1 bg-gray-500'}`}></div>
-                            </div>
-                        </div>
-                    ))}
+        ),
+        tasks: (
+            <section key="tasks" className="lg:col-span-8 bg-[#0a0a0c] border border-white/5 rounded-[2.5rem] p-8 space-y-6 liquid-glass">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        <CheckSquare size={18} className="text-amber-400" />
+                        Foco Vital
+                    </h3>
+                    <button onClick={() => onNavigate('board')} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Ver Kanban</button>
                 </div>
-            </div>
-        </section>
-
-        {/* F3: Chronos View (Agenda) */}
-        {/* Domino: Delay 300ms */}
-        <section className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 group rounded-[30px] p-6 liquid-glass relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-transparent to-transparent opacity-50 group-hover:opacity-80 transition-opacity"></div>
-            
-            {/* GRAPHIC ENGINE: Chronos Icon */}
-            <div className="absolute -right-8 -bottom-8 text-indigo-400 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity duration-700 pointer-events-none rotate-[15deg]">
-                <Hourglass size={180} strokeWidth={1} />
-            </div>
-
-            <div className="relative z-10">
-                <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-2">
-                        <CalendarClock size={20} className="text-gray-400 icon-duotone" />
-                        <h3 className="text-lg font-semibold text-white">Chronos</h3>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-theme-primary bg-theme-primary/10 px-2.5 py-1 rounded-full border border-theme-primary/20 shadow-[0_0_10px_var(--primary-dim)]">
-                        Ahora
-                    </span>
-                </div>
-                
-                <div className="flex items-start gap-5">
-                    <div className="flex flex-col items-center pt-1">
-                        <span className="text-sm font-bold text-white">10:00</span>
-                        <div className="w-0.5 h-16 bg-gradient-to-b from-white/20 to-transparent my-2 rounded-full"></div>
-                    </div>
-                    
-                    <div className="flex-1">
-                        <h4 className="text-xl font-medium text-white leading-snug">Review Q1 con Equipo</h4>
-                        <p className="text-sm text-gray-400 mt-1 leading-relaxed font-light">Sincronización de objetivos y bloqueos.</p>
-                        
-                        <div className="flex gap-3 mt-5">
-                            {/* Shining Button */}
-                            <div className="relative group/btn w-full">
-                                <div className="absolute -inset-0.5 bg-gradient-to-r from-gray-700 to-gray-500 rounded-xl blur opacity-30 group-hover/btn:opacity-60 transition duration-200"></div>
-                                <button className="relative w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2">
-                                    <span>Unirse (Meet)</span>
-                                    <ArrowUpRight size={14} />
+                <div className="space-y-3">
+                    {activeTasks.length === 0 ? (
+                        <div className="text-center py-10 text-gray-600 text-sm italic">Sin tareas pendientes para hoy.</div>
+                    ) : (
+                        activeTasks.slice(0, 4).map(task => (
+                            <div key={task.id} className="group bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex items-center justify-between hover:bg-white/[0.04] hover:border-white/10 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${task.priority === 'high' ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' : 'bg-gray-600'}`}></div>
+                                    <div>
+                                        <div className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">{task.title}</div>
+                                        <div className="flex gap-2 mt-1">
+                                            {task.priority === 'high' && <span className="text-[9px] font-black text-red-500/70 uppercase tracking-widest">Alta Prioridad</span>}
+                                            {task.organizationId && <span className="text-[9px] font-black text-blue-500/60 uppercase tracking-widest">{task.organizationId}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => onToggleTask?.(task.id)}
+                                    className="w-8 h-8 rounded-full border border-white/10 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all flex items-center justify-center group/check active:scale-90"
+                                >
+                                    <Check size={14} className="text-emerald-500 opacity-0 group-hover/check:opacity-100 transition-opacity" />
                                 </button>
                             </div>
-                        </div>
+                        ))
+                    )}
+                </div>
+            </section>
+        ),
+        portfolio: (
+            <section key="portfolio" className="lg:col-span-4 bg-[#0a0a0c] border border-white/5 rounded-[2.5rem] p-6 liquid-glass">
+                <div className="flex justify-between items-center mb-6 px-2">
+                    <div className="flex items-center gap-2">
+                        <Briefcase size={18} className="text-blue-500" />
+                        <h3 className="text-lg font-bold text-white tracking-tight">Cartera 2026</h3>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        {/* F2: Task Focus */}
-        {/* Domino: Delay 400ms */}
-        <section className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-500">
-            <div className="flex items-center justify-between px-1">
-                <h3 className="text-lg font-semibold text-white">Foco Vital</h3>
-                <span className="text-xs font-bold text-gray-400 bg-white/5 px-3 py-1 rounded-full">{tasks.filter(t => !t.completed).length} pendientes</span>
-            </div>
-            
-            <div className="flex flex-col gap-3">
-                {tasks.slice(0, 3).map((task, i) => (
-                    <div key={task.id} className={`group relative flex items-center gap-4 p-4 rounded-[20px] liquid-glass hover:bg-white/5 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4`} style={{ animationDelay: `${500 + (i * 100)}ms` }}>
-                        <div className="relative flex-shrink-0">
-                            <input 
-                                type="checkbox" 
-                                defaultChecked={task.completed}
-                                className={`peer appearance-none w-6 h-6 border-2 rounded-full transition-all cursor-pointer ${task.priority === 'high' ? 'border-theme-primary/70' : 'border-gray-600'} checked:bg-theme-primary checked:border-transparent checked:shadow-neon`}
-                            />
-                            <Check className="w-3.5 h-3.5 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" strokeWidth={3} />
+                <div className="space-y-3">
+                    {clients.slice(0, 4).map((client) => (
+                        <button 
+                            key={client.id} 
+                            onClick={() => onNavigate('agency')}
+                            className="w-full text-left group bg-white/[0.02] border border-white/5 rounded-2xl p-4 hover:bg-white/[0.05] hover:border-white/10 transition-all cursor-pointer flex justify-between items-center relative overflow-hidden active:scale-[0.98]"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-tr from-white/5 to-white/10 border border-white/10 rounded-xl flex items-center justify-center text-gray-500 group-hover:text-blue-400 transition-colors">
+                                    {client.logo || <LayoutGrid size={18} />}
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">{client.name}</div>
+                                    <div className="text-[10px] text-gray-600 uppercase tracking-widest">{client.type}</div>
+                                </div>
+                            </div>
+                            <ArrowUpRight size={14} className="text-gray-700 group-hover:text-white transition-colors" />
+                        </button>
+                    ))}
+                </div>
+                <button className="w-full mt-6 py-3 bg-blue-600 hover:bg-blue-500 border border-blue-400/30 rounded-2xl text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-[0_4px_20px_rgba(37,99,235,0.4)] transition-all flex items-center justify-center gap-2">
+                    <Plus size={14} /> Nuevo Cliente
+                </button>
+            </section>
+        ),
+        links: (
+            <section key="links" className="lg:col-span-8 bg-[#0a0a0c] border border-white/5 rounded-[2.5rem] p-8 liquid-glass">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-white tracking-tight">Neural Links</h3>
+                    <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-widest">Active Hub</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {[
+                        { name: 'Supabase', icon: <Database size={16} />, color: 'text-emerald-500' },
+                        { name: 'Notion', icon: <FileIcon size={16} />, color: 'text-white' },
+                        { name: 'Google', icon: <Zap size={16} />, color: 'text-blue-500' },
+                        { name: 'n8n', icon: <Activity size={16} />, color: 'text-orange-500' },
+                        { name: 'Flowise', icon: <Mic size={16} />, color: 'text-purple-500' }
+                    ].map((app, i) => (
+                        <div key={i} className="flex flex-col items-center gap-2 p-4 bg-white/5 rounded-3xl border border-white/5 group hover:bg-white/10 transition-all cursor-pointer">
+                            <div className={`p-3 rounded-2xl bg-black/40 ${app.color}`}>{app.icon}</div>
+                            <span className="text-[10px] font-bold text-gray-500 group-hover:text-gray-300 transition-colors">{app.name}</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-base font-medium text-gray-200 truncate group-hover:text-theme-primary transition-colors">{task.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                {task.priority === 'high' && <span className="text-[10px] font-bold text-amber-400 tracking-wide">ALTA PRIORIDAD</span>}
-                                {task.tags?.map(tag => (
-                                     <span key={tag} className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{tag}</span>
-                                ))}
+                    ))}
+                </div>
+            </section>
+        ),
+        chronos: (
+            <section key="chronos" className="lg:col-span-4 bg-[#0a0a0c] border border-white/5 rounded-[2.5rem] p-6 liquid-glass flex flex-col">
+                <div className="flex justify-between items-center mb-6 px-2">
+                    <div className="flex items-center gap-2 text-gray-400">
+                        <Calendar size={18} />
+                        <h3 className="text-lg font-bold tracking-tight text-white">Chronos</h3>
+                    </div>
+                </div>
+                <div className="flex-1 space-y-4">
+                    {events.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-40 py-10">
+                            <Clock size={32} />
+                            <div className="text-[10px] font-black uppercase tracking-widest">Sin eventos próximos</div>
+                        </div>
+                    ) : (
+                        events.map(event => (
+                            <div key={event.id} className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-1">
+                                <div className="text-xs font-bold text-white">{event.title}</div>
+                                <div className="text-[10px] text-gray-500 flex justify-between items-center">
+                                    <span>{event.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    {event.link && <ArrowUpRight size={10} className="text-blue-400" />}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </section>
+        ),
+        voice: (
+            <section key="voice" className="lg:col-span-8 relative overflow-hidden bg-[#0a0a0c] border border-white/5 rounded-[2.5rem] p-8 group liquid-glass">
+                <div className="absolute -right-20 -top-20 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full group-hover:bg-emerald-500/20 transition-all duration-1000"></div>
+                <div className="relative z-10 space-y-6">
+                    <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-500">
+                                <Zap size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white tracking-tight">Aureon Brain</h3>
+                                <p className="text-sm text-gray-500">Inteligencia Generativa Activa</p>
                             </div>
                         </div>
+                        <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-emerald-500 animate-pulse">Live</div>
                     </div>
-                ))}
-            </div>
-        </section>
-
-        {/* Lead Radar (Only for Andres/Christian) */}
-        {(user.id === 'andrea' || user.id === 'christian') && (
-        <section className="mt-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-700">
-            <div className="flex items-center justify-between px-1 mb-3">
-                <h3 className="text-lg font-semibold text-white">Lead Radar (CRM)</h3>
-                <Radar className="w-5 h-5 text-theme-primary animate-spin-slow icon-duotone" strokeWidth={1.5} style={{ animationDuration: '4s' }} />
-            </div>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 pl-1">
-                {leads.map(lead => (
-                    <div key={lead.id} className="min-w-[170px] p-4 rounded-[24px] liquid-glass flex flex-col gap-3 transition-all hover:translate-y-[-4px] hover:shadow-[0_10px_20px_rgba(0,0,0,0.3)] group cursor-pointer border-transparent hover:border-white/10">
-                        <div className="flex items-start justify-between">
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold text-white shadow-lg ${lead.color} group-hover:scale-110 transition-transform`}>
-                                {lead.initials}
-                            </div>
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-theme-secondary bg-theme-secondary/10 px-2 py-0.5 rounded-full border border-theme-secondary/10">{lead.status}</span>
-                        </div>
-                        <div>
-                            <p className="text-base font-bold text-white leading-tight">{lead.name}</p>
-                            <p className="text-xs text-gray-500 mt-1 truncate">{lead.detail}</p>
-                        </div>
+                    <div className="bg-black/40 border border-white/5 rounded-2xl p-6">
+                        <p className="text-sm text-gray-400 leading-relaxed italic">"Analizando tendencias de la Cartera 2026. Sugiero priorizar el onboarding de Clínica Pro Salud para optimizar el flujo de caja del Q1."</p>
                     </div>
-                ))}
-            </div>
-        </section>
-        )}
-        
-        {/* Branding Footer */}
-        <div className="mt-12 mb-6 flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 transition-opacity animate-in fade-in duration-1000 delay-1000">
-            <div className="liquid-glass flex items-center gap-2 px-3 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-theme-primary animate-pulse shadow-[0_0_8px_var(--primary)]"></span>
-                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Beta v.1.0</span>
-            </div>
-            <p className="text-[10px] text-gray-500 font-medium tracking-wide flex items-center gap-1.5">
-                Elevat, LLC <span className="w-0.5 h-2.5 bg-gray-700 rounded-full"></span> Powered by <span className="text-gray-300 font-semibold">Multiversa</span>
-            </p>
-        </div>
+                    <div className="flex flex-wrap gap-2">
+                        {['Planear Día', 'Resumen Clientes', 'Nueva Tarea'].map(cmd => (
+                            <button 
+                                key={cmd} 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    alert(`Aureon Voice Command: "${cmd}" inicializado.`);
+                                }}
+                                className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500/20 transition-all active:scale-95"
+                            >
+                                {cmd}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        ),
+        training: trainingMode?.active ? (
+            <section key="training" className="lg:col-span-4 bg-amber-500/10 border border-amber-500/20 rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center space-y-4 liquid-glass">
+                <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500 animate-bounce">
+                    <Activity size={24} />
+                </div>
+                <div className="space-y-1">
+                    <h4 className="text-lg font-bold text-amber-500 tracking-tight">Modo Entrenamiento</h4>
+                    <p className="text-xs text-amber-500/60 uppercase tracking-widest font-black leading-tight">{trainingMode.reason}</p>
+                </div>
+                <button className="px-6 py-2 bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-amber-400 transition-all">Finalizar Sesión</button>
+            </section>
+        ) : null
+    };
 
-        <div className="h-6"></div>
-    </main>
-  );
+    const layout = user.layoutConfig || ['status', 'hub', 'tasks', 'portfolio', 'links', 'chronos'];
+
+    return (
+        <main className="px-4 sm:px-6 lg:px-8 pb-32 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-1000">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {layout.map(widgetId => WIDGETS[widgetId] || null)}
+            </div>
+
+            {/* BRANDING FOOTER */}
+            <div className="flex flex-col items-center justify-center pt-10 pb-6 space-y-4 opacity-30 mt-12">
+                <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.5em]">{brand.name}</div>
+                <div className="flex gap-4">
+                    <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse delay-700"></div>
+                    <div className="w-1 h-1 bg-purple-500 rounded-full animate-pulse delay-1000"></div>
+                </div>
+            </div>
+        </main>
+    );
 };
 
 export default Dashboard;

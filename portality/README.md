@@ -1,20 +1,39 @@
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+<h1>PORTALITY | ELEVAT OS</h1>
 </div>
 
-# Run and deploy your AI Studio app
+**Portality** is the central Operating System for **Elevat Marketing** and the **Multiversa Lab** ecosystem. It unifies operations, intelligence (Aureon AI), and data into a single verified interface.
 
-This contains everything you need to run your app locally.
+## 🛡️ INTELLECTUAL PROPERTY & COPYRIGHT
 
-View your app in AI Studio: https://ai.studio/apps/drive/1kvEScziThZV7ow83oCbyD56ndg6I-kkd
+> [!CAUTION] > **PROPIEDAD PRIVADA / PRIVATE PROPERTY**
 
-## Run Locally
+This software, its source code, architecture, and design are the exclusive Intellectual Property of:
 
-**Prerequisites:**  Node.js
+**MULTIVERSA GROUP**
+_(Runa Gold & HeyMou)_
 
+**Portality** is an internal product restricted to Multiversa Group operations.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+**Registro / Registry:**
+🔒 **Safe Creative** (Registered & Protected)
+
+### ⚠️ WARNING / ADVERTENCIA
+
+**ES:** Queda estrictamente prohibida la copia, reproducción, distribución, ingeniería inversa o cualquier uso no autorizado de este repositorio o sus componentes sin el consentimiento explícito y por escrito de los propietarios. Todo el contenido está monitoreado y registrado.
+
+**EN:** Unauthorized copying, reproduction, distribution, reverse engineering, or use of this repository or its components without explicit written consent from the owners is strictly prohibited. All content is monitored and registered.
+
+---
+
+## Run Locally (Restricted Access)
+
+1. **Install dependencies:**
+   `pnpm install`
+
+2. **Environment:**
+   Configure `.env.local` with authorized keys (Supabase, Gemini, Vercel).
+
+3. **Ignition:**
+   `pnpm dev`

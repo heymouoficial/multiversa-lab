@@ -1,0 +1,12 @@
+services:
+  portality-elevat:
+    build: .
+    container_name: portality-elevat
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - VITE_NOTION_TOKEN=${VITE_NOTION_TOKEN}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    restart: unless-stopped

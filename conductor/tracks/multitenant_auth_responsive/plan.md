@@ -13,7 +13,7 @@
    - [x] Update `profiles` table with `organization_id` and `role`
    - [x] Implement RLS policies for tenant isolation
    - [x] Auto-profile creation trigger for new users
-   - [ ] Run schema.sql in Supabase SQL Editor
+   - [x] Run schema.sql in Supabase SQL Editor
 
 2. **Real Authentication**
    - [x] Replace demo login with Supabase Auth
