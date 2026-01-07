@@ -5,6 +5,9 @@ export interface Client {
   type: 'fixed' | 'project';
   status: 'active' | 'paused' | 'risk';
   logo?: string;
+  company?: string;
+  email?: string;
+  startDate?: string;
   notion_id?: string;
 }
 
@@ -27,6 +30,7 @@ export interface Task {
   clientId?: string;
   serviceId?: string;
   deadline?: Date;
+  dueDate?: string | Date;
   organizationId?: string; // For privacy filtering (e.g. 'ELEVAT/AGORA')
 }
 
@@ -72,7 +76,7 @@ export interface KnowledgeSource {
 }
 
 export interface UserProfile {
-  id: 'andrea' | 'christian' | 'moises';
+  id: 'andrea' | 'christian' | 'moises' | 'astursadeth';
   name: string;
   role: string;
   avatar: string; // Initials or Image URL
@@ -99,7 +103,7 @@ export interface ThemeColors {
   blob2: string;
 }
 
-export type ViewState = 'home' | 'agency' | 'flow' | 'profile';
+export type ViewState = 'home' | 'agency' | 'flow' | 'profile' | 'connections' | 'team' | 'board';
 
 export enum AudioState {
   IDLE = 'idle',

@@ -1,6 +1,9 @@
 import { GoogleGenAI, FunctionDeclaration, Type, Tool, Content, Part } from "@google/genai";
 import { ChatMessage } from '../types';
 import { ragService } from './ragService';
+import { vercelService } from './vercelService';
+import { vpsService } from './vpsService';
+import { googleService } from './googleService';
 import { SYSTEM_INSTRUCTION, GEMINI_SEARCH_MODEL } from '../constants';
 
 // --- CONFIGURATION ---
@@ -32,8 +35,58 @@ const createTaskTool: FunctionDeclaration = {
     }
 };
 
+const manageInfrastructureTool: FunctionDeclaration = {
+    name: 'manage_infrastructure',
+    description: 'Manage Vercel environment variables and trigger redeployments.',
+    parameters: {
+        type: Type.OBJECT,
+        properties: {
+            action: { type: Type.STRING, enum: ["list", "upsert", "delete", "redeploy"] },
+            key: { type: Type.STRING, description: "Key name for the environment variable." },
+            value: { type: Type.STRING, description: "Value for the environment variable." }
+        },
+        required: ['action']
+    }
+};
+
+const manageGoogleWorkspaceTool: FunctionDeclaration = {
+    name: 'manage_google_workspace',
+    description: 'Interact with Google Workspace. Send emails via GMail, list files in Google Drive, or create meetings with Google Meet links via Calendar.',
+    parameters: {
+        type: Type.OBJECT,
+        properties: {
+            service: { type: Type.STRING, enum: ["gmail", "drive", "calendar"], description: "Select the service." },
+            action: { type: Type.STRING, enum: ["send", "list", "create_meeting"], description: "Action to perform." },
+            to: { type: Type.STRING, description: "Recipient email or attendee (for meetings)." },
+            subject: { type: Type.STRING, description: "Email subject or meeting title." },
+            body: { type: Type.STRING, description: "Email body or meeting description." },
+            startTime: { type: Type.STRING, description: "Meeting start time in ISO format (e.g. 2024-01-01T10:00:00Z)." },
+            endTime: { type: Type.STRING, description: "Meeting end time in ISO format." },
+            maxResults: { type: Type.NUMBER, description: "Number of items to return." }
+        },
+        required: ['service', 'action']
+    }
+};
+
+const checkVpsStatusTool: FunctionDeclaration = {
+    name: 'check_vps_status',
+    description: 'Retrieve real-time performance metrics (CPU, RAM, Disk) for the Hostinger VPS.',
+    parameters: {
+        type: Type.OBJECT,
+        properties: {}
+    }
+};
+
 const toolsConfig: Tool[] = [
-    { functionDeclarations: [queryKnowledgeBaseTool, createTaskTool] }
+    { 
+        functionDeclarations: [
+            queryKnowledgeBaseTool, 
+            createTaskTool, 
+            manageInfrastructureTool, 
+            manageGoogleWorkspaceTool, 
+            checkVpsStatusTool
+        ] 
+    }
 ];
 
 export const openRouterService = {
@@ -183,12 +236,59 @@ USUARIO ACTUAL: ${userContext}
                         onChunk(`\n\n> 🔍 *Analizando Base de Conocimiento...* \n\n`);
 
                         // Actual Logic
-                        toolResultString = await ragService.retrieveContext(args.query, userContext);
+                        toolResultString = await ragService.retrieveContext(args.query, 'ai_search', userContext);
                     }
                     else if (name === 'create_task') {
                         if (onToolCall) await onToolCall(name, args);
                         toolResultString = JSON.stringify({ status: "success", message: `Task '${args.title}' created.` });
                         onChunk(`\n> ✅ *Tarea Agendada: ${args.title}*\n\n`);
+                    }
+                    else if (name === 'manage_infrastructure') {
+                        onChunk(`\n> 🛠️ *Gestionando Infraestructura (Vercel)...*\n\n`);
+                        if (args.action === 'list') {
+                            const envs = await vercelService.listEnvVars();
+                            toolResultString = JSON.stringify(envs);
+                        } else if (args.action === 'upsert') {
+                            const result = await vercelService.upsertEnvVar(args.key, args.value);
+                            toolResultString = JSON.stringify(result);
+                        } else if (args.action === 'redeploy') {
+                            const result = await vercelService.triggerRedeploy();
+                            toolResultString = JSON.stringify(result);
+                        }
+                    }
+                    else if (name === 'manage_google_workspace') {
+                        onChunk(`\n> 📧 *Conectando con Google Workspace...*\n\n`);
+                        if (args.service === 'gmail') {
+                            if (args.action === 'send') {
+                                const result = await googleService.sendEmail(args.to, args.subject, args.body);
+                                toolResultString = JSON.stringify(result);
+                            } else {
+                                const result = await googleService.listEmails(args.maxResults);
+                                toolResultString = JSON.stringify(result);
+                            }
+                        } else if (args.service === 'drive') {
+                            const result = await googleService.listFiles(args.maxResults);
+                            toolResultString = JSON.stringify(result);
+                        } else if (args.service === 'calendar') {
+                            if (args.action === 'create_meeting') {
+                                const startTime = args.startTime || new Date().toISOString();
+                                const endTime = args.endTime || new Date(Date.now() + 30 * 60 * 1000).toISOString();
+                                const result = await googleService.createCalendarEvent(
+                                    args.subject, 
+                                    args.body, 
+                                    startTime, 
+                                    endTime, 
+                                    args.to ? [args.to] : []
+                                );
+                                toolResultString = JSON.stringify(result);
+                                onChunk(`\n> 🗓️ *Reunión agendada en Google Meet*\n\n`);
+                            }
+                        }
+                    }
+                    else if (name === 'check_vps_status') {
+                        onChunk(`\n> 🖥️ *Consultando Hostinger MCP...*\n\n`);
+                        const metrics = await vpsService.getStatus();
+                        toolResultString = JSON.stringify(metrics);
                     }
                     else {
                         toolResultString = JSON.stringify({ error: "Unknown tool" });

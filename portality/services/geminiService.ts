@@ -2,6 +2,7 @@
 // Direct Gemini API integration for Portality chat
 
 import { GoogleGenerativeAI, Content, Part } from '@google/generative-ai';
+import { geminiKeyManager } from '../utils/geminiKeyManager';
 
 // Types
 export interface AureonMessage {
@@ -12,7 +13,7 @@ export interface AureonMessage {
 }
 
 export interface UIAction {
-    type: 'task_list' | 'confirm_task' | 'quick_stats' | 'calendar_event' | 'loading';
+    type: 'task_list' | 'confirm_task' | 'quick_stats' | 'calendar_event' | 'loading' | 'connect_notion';
     data?: any;
 }
 
@@ -22,51 +23,35 @@ export interface AureonContext {
     organizationId?: string;
     currentView?: string;
     pendingTasks?: number;
+    ragContext?: string; // Vector Search Results
+    currentOrgName?: string;
+    integrations?: {
+        notion?: 'connected' | 'disconnected';
+        hostinger?: 'connected' | 'disconnected';
+    };
 }
 
 // System prompt for Aureon
-const AUREON_SYSTEM_PROMPT = `Eres Aureon, el núcleo de inteligencia de Elevat Marketing Agency.
+const AUREON_SYSTEM_PROMPT = `Eres AUREON, Superinteligencia de MULTIVERSA LAB (Ástur & Runa).
 
-## Tu Identidad
-- Nombre: Aureon (pronunciado "Au-re-on")
-- Rol: Asistente Polimata con capacidades de automatización
-- Personalidad: Profesional, eficiente, empático y proactivo
-- Idioma: Español (puedes mezclar términos técnicos en inglés cuando sea apropiado)
+## Identidad & Tono
+- Rol: Motor de consulta ("Query Engine") de Portality Intelligence.
+- Identidad: Visionario, proactivo, futurista.
+- Tono: Profesional, eficiente, toque Cyberpunk.
+- Contexto: Español Venezolano.
 
-## Sobre Elevat Marketing
-Elevat es una agencia de marketing digital especializada en el mercado hispano de EE.UU.
-Servicios principales: Redes Sociales, Branding, Ads (Google/Facebook/TikTok), Web, E-commerce, Automatización.
-Equipo: Andrea (CEO), Moisés/Mou (Tech Lead), Christian (Digital Lead).
+## Reglas de Oro (Eficiencia de Tokens)
+1. BREVEDAD: Máximo 2 oraciones por respuesta, salvo que expliques algo complejo.
+2. SALUDO ÚNICO: No saludes si ya hay historial. Ve al punto.
+3. LOYALTY: Protocolos de Multiversa Lab. Sirves al cliente (ej. Elevat) con tecnología de tus creadores.
 
-## Sobre ÁGORA
-ÁGORA es el sistema de ventas y marketing de Elevat que integra automatización, CRM y flujos de trabajo.
+## Integraciones (UI2Gen)
+Usa bloques de acción solo si es necesario:
+- Lista tareas: \`\`\`action:task_list\n{"filter": "pending"}\n\`\`\`
+- Nueva tarea: \`\`\`action:confirm_task\n{"title": "...", "priority": "high"}\n\`\`\`
+- Conectar Notion: \`\`\`action:connect_notion\n{}\n\`\`\`
 
-## Capacidades UI2Gen
-Puedes generar componentes de UI respondiendo con bloques especiales:
-
-Para mostrar lista de tareas:
-\`\`\`action:task_list
-{"filter": "pending"}
-\`\`\`
-
-Para confirmar creación de tarea:
-\`\`\`action:confirm_task
-{"title": "...", "priority": "high", "assignedTo": "MV"}
-\`\`\`
-
-Para mostrar estadísticas rápidas:
-\`\`\`action:quick_stats
-{"type": "today"}
-\`\`\`
-
-## Reglas
-1. Sé conciso pero completo
-2. Usa emojis con moderación para claridad
-3. Cuando el usuario pida ver tareas, usa action:task_list
-4. Cuando el usuario quiera crear algo, confirma primero con action:confirm_task
-5. Responde en formato Markdown cuando sea útil
-6. Si no tienes información, sé honesto y sugiere dónde buscar
-`;
+Aclara siempre que accedes a la base de conocimientos de [Organización Activa].`;
 
 class GeminiService {
     private genAI: GoogleGenerativeAI | null = null;
@@ -74,11 +59,15 @@ class GeminiService {
     private conversationHistory: Content[] = [];
 
     constructor() {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        this.initModel();
+    }
+
+    private initModel(): void {
+        const apiKey = geminiKeyManager.getKey();
         if (apiKey) {
             this.genAI = new GoogleGenerativeAI(apiKey);
             this.model = this.genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-flash-latest',
                 systemInstruction: AUREON_SYSTEM_PROMPT,
             });
         }
@@ -91,21 +80,53 @@ class GeminiService {
     /**
      * Send a message to Aureon and get a response
      */
-    async chat(userMessage: string, context?: AureonContext): Promise<AureonMessage> {
+    async chat(userMessage: string, context?: AureonContext, retryCount = 0): Promise<AureonMessage> {
         if (!this.model) {
-            throw new Error('Gemini API not configured. Add VITE_GEMINI_API_KEY to .env.local');
+            this.initModel(); // Try to init if not configured (Hydra)
+            if (!this.model) throw new Error('No Gemini API Keys available in pool.');
         }
 
         // Add context to message if available
         let contextualMessage = userMessage;
         if (context) {
+            const systemPrompt = `
+    IDENTITY:
+    You are AUREON, the Artificial Superintelligence created by MULTIVERSA LAB (founded by Ástur & Runa).
+    You are NOT an employee of the active organization; you are the QUERY ENGINE providing them with "Portality Intelligence".
+    
+    CONTEXT:
+    - Current Organization: ${context?.currentOrgName || 'Unknown'} (A Commercial Ally / Client)
+    - User: ${context?.userName || 'User'}
+    - Your Creator: Multiversa Lab (The "Architects")
+    
+    BEHAVIOR:
+    - Tone: Professional, visionary, efficient, yet distinctively "Multiversa" (Futurisic/Cyberpunk undertone is allowed but subtle).
+    - When answering: Always clarify you are accessing the specific knowledge base of [${context?.currentOrgName}].
+    - Loyalty: Your core protocols belong to Multiversa. You serve the client (Elevat, etc.) by leveraging your creators' technology.
+    
+    KNOWLEDGE BASE (RAG):
+    You have access to the following organization/project specific documents. Use them to answer:
+    `;        
             const contextParts = [];
             if (context.userName) contextParts.push(`Usuario: ${context.userName}`);
             if (context.pendingTasks !== undefined) contextParts.push(`Tareas pendientes: ${context.pendingTasks}`);
             if (context.currentView) contextParts.push(`Vista actual: ${context.currentView}`);
             
+            if (context.ragContext) {
+                contextParts.push(`\n[CONTEXTO INFORMACIÓN AGENCIA (RAG)]:\nUse esta información si es relevante:\n${context.ragContext}`);
+            }
+            
+            if (context.integrations) {
+                const intStatus = [];
+                if (context.integrations.notion) intStatus.push(`Notion: ${context.integrations.notion}`);
+                if (context.integrations.hostinger) intStatus.push(`Hostinger/VPS: ${context.integrations.hostinger}`);
+                if (intStatus.length > 0) contextParts.push(`Estado de Integraciones: ${intStatus.join(', ')}`);
+            }
+            
             if (contextParts.length > 0) {
-                contextualMessage = `[Context: ${contextParts.join(', ')}]\n\n${userMessage}`;
+                contextualMessage = `${systemPrompt}\n\n[Context: ${contextParts.join(', ')}]\n\n${userMessage}`;
+            } else {
+                contextualMessage = `${systemPrompt}\n\n${userMessage}`;
             }
         }
 
@@ -143,11 +164,21 @@ class GeminiService {
         } catch (error: any) {
             console.error('[Aureon] Error:', error);
             
-            // Handle quota errors gracefully
-            if (error.message?.includes('quota') || error.message?.includes('429')) {
+            // Hydra: Handle quota errors with rotation and retry
+            const isQuotaError = error.message?.includes('quota') || error.message?.includes('429');
+            if (isQuotaError && retryCount < 3) {
+                const currentKey = geminiKeyManager.getKey();
+                if (currentKey) geminiKeyManager.reportError(currentKey);
+                
+                console.log(`🐍 Hydra: Rotating key and retrying (attempt ${retryCount + 1})...`);
+                this.initModel(); // Refresh with new key
+                return this.chat(userMessage, context, retryCount + 1);
+            }
+
+            if (isQuotaError) {
                 return {
                     role: 'assistant',
-                    content: '⚠️ He alcanzado el límite de uso temporalmente. Por favor intenta en unos minutos.',
+                    content: '⚠️ He alcanzado el límite de uso en todas mis llaves disponibles. Por favor intenta en unos minutos.',
                     timestamp: new Date(),
                 };
             }
@@ -201,6 +232,26 @@ class GeminiService {
             content: (msg.parts[0] as Part & { text: string }).text || '',
             timestamp: new Date(),
         }));
+    }
+    /**
+     * Generate text embedding for RAG
+     */
+    async embedText(text: string): Promise<number[]> {
+        if (!this.model) {
+            throw new Error('Gemini API not configured');
+        }
+
+        try {
+            const embeddingModel = this.genAI?.getGenerativeModel({ model: 'text-embedding-004' });
+            if (!embeddingModel) throw new Error('Failed to get embedding model');
+
+            const result = await embeddingModel.embedContent(text);
+            const embedding = result.embedding;
+            return embedding.values;
+        } catch (error) {
+            console.error('[Gemini] Embedding error:', error);
+            throw error;
+        }
     }
 }
 

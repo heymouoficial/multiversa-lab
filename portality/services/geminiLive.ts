@@ -48,7 +48,7 @@ export class GeminiLiveService {
   private gainNode: GainNode | null = null;
 
   constructor(callbacks: LiveSessionCallbacks) {
-    this.client = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    this.client = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
     this.callbacks = callbacks;
   }
 

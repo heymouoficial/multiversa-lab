@@ -4,36 +4,27 @@ import {
     Plus, ExternalLink, ChevronRight, Clock,
     Mail, Phone, Building
 } from 'lucide-react';
-import { Task, Client } from '../types';
+import { Task, Client, Service } from '../types';
 import { getCurrentBrand } from '../config/branding';
 
 interface NotionViewProps {
     clients: Client[];
+    services: Service[];
     tasks: Task[];
     onToggleTask?: (id: string) => void;
 }
 
 type TabId = 'clientes' | 'servicios' | 'tareas';
 
-const NotionView: React.FC<NotionViewProps> = ({ clients, tasks, onToggleTask }) => {
+const NotionView: React.FC<NotionViewProps> = ({ clients, services, tasks, onToggleTask }) => {
     const brand = getCurrentBrand();
     const [activeTab, setActiveTab] = useState<TabId>('clientes');
     const [searchQuery, setSearchQuery] = useState('');
 
     const tabs = [
         { id: 'clientes' as TabId, label: 'Clientes', icon: <Users size={16} />, count: clients.length },
-        { id: 'servicios' as TabId, label: 'Servicios', icon: <Briefcase size={16} />, count: 6 },
+        { id: 'servicios' as TabId, label: 'Servicios', icon: <Briefcase size={16} />, count: services.length },
         { id: 'tareas' as TabId, label: 'Tareas', icon: <CheckSquare size={16} />, count: tasks.length },
-    ];
-
-    // Mock services data
-    const services = [
-        { id: 's1', name: 'Manejo de Redes Sociales', clients: 4, status: 'active' },
-        { id: 's2', name: 'Desarrollo Web', clients: 3, status: 'active' },
-        { id: 's3', name: 'Google Ads', clients: 2, status: 'active' },
-        { id: 's4', name: 'Branding', clients: 2, status: 'active' },
-        { id: 's5', name: 'Email Marketing', clients: 1, status: 'pending' },
-        { id: 's6', name: 'Automatización', clients: 1, status: 'pending' },
     ];
 
     const filteredClients = clients.filter(c => 
@@ -139,7 +130,7 @@ const NotionView: React.FC<NotionViewProps> = ({ clients, tasks, onToggleTask })
                 {/* SERVICIOS TAB */}
                 {activeTab === 'servicios' && (
                     <div className="divide-y divide-white/5">
-                        {services.map((service) => (
+                        {services.length > 0 ? services.map((service) => (
                             <div key={service.id} className="flex items-center gap-4 p-4 hover:bg-white/[0.02] transition-all">
                                 <div 
                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -149,19 +140,24 @@ const NotionView: React.FC<NotionViewProps> = ({ clients, tasks, onToggleTask })
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-white truncate">{service.name}</p>
-                                    <p className="text-xs text-gray-500">{service.clients} clientes activos</p>
+                                    <p className="text-xs text-gray-500">{service.frequency === 'monthly' ? 'Mensual' : 'Pago Único'}</p>
                                 </div>
                                 <span 
                                     className="text-[9px] font-bold uppercase px-2 py-1 rounded-full"
                                     style={{ 
-                                        backgroundColor: service.status === 'active' ? `${brand.colors.success}15` : `${brand.colors.warning}15`,
-                                        color: service.status === 'active' ? brand.colors.success : brand.colors.warning
+                                        backgroundColor: `${brand.colors.success}15`,
+                                        color: brand.colors.success
                                     }}
                                 >
-                                    {service.status === 'active' ? 'Activo' : 'Setup'}
+                                    Activo
                                 </span>
                             </div>
-                        ))}
+                        )) : (
+                            <div className="p-8 text-center text-gray-600">
+                                <Briefcase size={32} className="mx-auto mb-3 opacity-50" />
+                                <p className="text-sm">No hay servicios que mostrar</p>
+                            </div>
+                        )}
                     </div>
                 )}
 

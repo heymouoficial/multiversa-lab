@@ -29,10 +29,10 @@ DECLARE
     runa_id UUID;
 BEGIN
     -- Find User
-    SELECT id INTO target_user_id FROM auth.users WHERE email = 'moushakquant@gmail.com';
+    SELECT id INTO target_user_id FROM auth.users WHERE email = 'multiversagroup@gmail.com';
 
     IF target_user_id IS NULL THEN
-        RAISE EXCEPTION 'User moushakquant@gmail.com not found! Ensure user has signed up.';
+        RAISE EXCEPTION 'User multiversagroup@gmail.com not found! Ensure user has signed up.';
     END IF;
 
     -- Upsert Multiversa Lab

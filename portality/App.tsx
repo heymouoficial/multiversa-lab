@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { ragService } from './services/ragService';
+import ConnectionsView from './components/ConnectionsView';
+import TeamView from './components/TeamView';
 import LoginView from './components/LoginView';
 import { SettingsPanel } from './components/SettingsPanel';
 import Header from './components/Header';
@@ -10,7 +12,8 @@ import HomeView from './components/HomeView';
 import NotionView from './components/NotionView';
 import RAGView from './components/RAGView';
 import FloatingChat from './components/FloatingChat';
-import { Task, Lead, ViewState, AudioState, ChatMessage, UserProfile, NotionPage, CalendarEvent, Client } from './types';
+import { useAureonLive } from './hooks/useAureonLive';
+import { Task, Lead, ViewState, AudioState, ChatMessage, UserProfile, NotionPage, CalendarEvent, Client, Service } from './types';
 import { THEMES } from './constants';
 import { getCurrentBrand, applyBrandColors } from './config/branding';
 
@@ -39,18 +42,12 @@ const EMAIL_TO_PROFILE: Record<string, string> = {
     'andreachimarasonlinebusiness@gmail.com': 'andrea',
     'christomoreno6@gmail.com': 'christian',
     'moshequantum@gmail.com': 'moises',
-    'andrea@elevat.io': 'andrea',
-    'christian@elevat.io': 'christian',
-    'moises@elevat.io': 'moises'
+    'andrea@elevatmarketing.com': 'andrea',
+    'christian@elevatmarketing.com': 'christian',
+    'moises@elevatmarketing.com': 'moises'
 };
 
 const SESSION_TIMEOUT_MS = 90 * 60 * 1000; // 90 Minutes
-
-const GLOBAL_LEADS: Lead[] = [
-    { id: '1', initials: 'EL', name: 'Elevat Latam', status: 'Hot', detail: 'Interesado en MVP', color: 'bg-gradient-to-br from-blue-500 to-purple-600' },
-    { id: '2', initials: 'SA', name: 'Studio Alpha', status: 'New', detail: 'Agendó demo', color: 'bg-gray-200 dark:bg-gray-800 !text-gray-600 dark:!text-gray-300' },
-    { id: '3', initials: 'NX', name: 'Nux Agency', status: 'Won', detail: 'Pago recibido', color: 'bg-lime-500 text-black' },
-];
 
 export default function App() {
     const [session, setSession] = useState<any>(null);
@@ -64,13 +61,14 @@ export default function App() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [themeMode, setThemeMode] = useState<string>('dark');
     const [audioState, setAudioState] = useState<AudioState>(AudioState.IDLE);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
+    const [services, setServices] = useState<Service[]>([]);
     const [notionDocs, setNotionDocs] = useState<NotionPage[]>([]);
     const [trainingMode, setTrainingMode] = useState<{ active: boolean; reason: string }>({ active: false, reason: '' });
     const [events, setEvents] = useState<CalendarEvent[]>([]);
-    const [leads] = useState<Lead[]>(GLOBAL_LEADS);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
 
     // Activity Tracking for 90-min expiry
@@ -180,83 +178,64 @@ export default function App() {
 
     // Load User Data & RAG Context
     useEffect(() => {
-        if (!currentUser) return;
+        if (!currentUser || !session) return;
 
-        const fetchTasks = async () => {
-            try {
-                // Simple query first - avoid complex filters that may fail
-                const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-                
-                if (error) throw error;
-                
-                if (data && data.length > 0) {
-                    setTasks(data.map(t => ({
-                        id: t.id,
-                        title: t.title,
-                        priority: t.priority || 'medium',
-                        status: t.status || 'todo',
-                        completed: t.completed || false,
-                        tags: t.tags || [],
-                        assignedTo: t.assigned_to || 'MV',
-                        organizationId: t.organization_id || 'ELEVAT'
-                    })));
-                    return;
-                }
-            } catch (err) {
-                console.log('[Tasks] DB not available, using fallback');
+        const fetchAllData = async () => {
+            // Fetch Tasks
+            const { data: tasksData, error: tasksError } = await supabase
+                .from('tasks')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (tasksError) {
+                console.error('[Supabase] Error fetching tasks:', tasksError);
+                setTasks([]); // Set to empty on error, no mock data
+            } else {
+                setTasks(tasksData.map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    priority: t.priority || 'medium',
+                    status: t.status || 'todo',
+                    completed: t.completed || false,
+                    tags: t.tags || [],
+                    assignedTo: t.assigned_to || 'MV',
+                    organizationId: t.organization_id || 'ELEVAT'
+                })));
+            }
+
+            // Fetch Clients
+            const { data: clientsData, error: clientsError } = await supabase
+                .from('clients')
+                .select('*');
+
+            if (clientsError) {
+                console.error('[Supabase] Error fetching clients:', clientsError);
+                setClients([]); // Set to empty on error
+            } else {
+                setClients(clientsData || []);
+            }
+
+            // Fetch Services
+            const { data: servicesData, error: servicesError } = await supabase
+                .from('services')
+                .select('*');
+
+            if (servicesError) {
+                console.error('[Supabase] Error fetching services:', servicesError);
+                setServices([]);
+            } else {
+                setServices(servicesData || []);
             }
             
-            // Fallback Mock - Multi-Org Tasks
-            setTasks([
-                // Elevat Tasks
-                { id: 't1', title: 'Reunión Clínica Pro Salud', priority: 'high', status: 'todo', completed: false, tags: ['Cliente'], assignedTo: 'AC', organizationId: 'elevat' },
-                { id: 't2', title: 'Propuesta Your Sign World', priority: 'medium', status: 'todo', completed: false, tags: ['Ventas'], assignedTo: 'AC', organizationId: 'elevat' },
-                { id: 't3', title: 'Estrategia ÁGORA Q1', priority: 'medium', status: 'todo', completed: false, tags: ['Estrategia'], assignedTo: 'AC', organizationId: 'elevat' },
-                { id: 't4', title: 'Web Directorist (Elementor)', priority: 'high', status: 'todo', completed: false, tags: ['Web'], assignedTo: 'CM', organizationId: 'elevat' },
-                
-                // Multiversa Lab Tasks (Owner)
-                { id: 'm1', title: 'Infraestructura Portality VPS', priority: 'high', status: 'in-progress', completed: false, tags: ['Lab', 'Infra'], assignedTo: 'MV', organizationId: 'multiversa' },
-                { id: 'm2', title: 'Definir Roadmap Hydra', priority: 'medium', status: 'todo', completed: false, tags: ['Strategy'], assignedTo: 'AS', organizationId: 'multiversa' },
+            // Fetch Events
+            const { data: eventsData } = await supabase
+                .from('events')
+                .select('*')
+                .order('start_time', { ascending: true })
+                .limit(5);
 
-                // Runa Script Tasks (Wife/Family)
-                { id: 'r1', title: 'Planificación Semanal', priority: 'medium', status: 'todo', completed: false, tags: ['Home'], assignedTo: 'RS', organizationId: 'runa' },
-                { id: 'r2', title: 'Revisión Presupuesto', priority: 'high', status: 'todo', completed: false, tags: ['Finance'], assignedTo: 'RS', organizationId: 'runa' }
-            ]);
-        };
-        fetchTasks();
-
-        // Load Clients
-        const loadClients = async () => {
-            try {
-                const { data, error } = await supabase.from('clients').select('*');
-                if (error) throw error;
-                if (data && data.length > 0) {
-                    setClients(data);
-                    return;
-                }
-            } catch (err) {
-                console.log('[Clients] DB not available, using fallback');
-            }
-            // Fallback Mock
-            setClients([
-                { id: 'c1', name: 'Clínica Pro Salud', type: 'fixed', status: 'active', logo: '🏥' },
-                { id: 'c2', name: 'Your Sign World', type: 'project', status: 'active', logo: '🪧' },
-                { id: 'c3', name: 'D Mart Parts', type: 'project', status: 'active', logo: '🚗' },
-                { id: 'c4', name: 'Torres Cabrera Law', type: 'fixed', status: 'active', logo: '⚖️' }
-            ]);
-        };
-        loadClients();
-
-        const channel = supabase.channel('tasks_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-                fetchTasks();
-            })
-            .subscribe();
-
-        const fetchEvents = async () => {
-            const { data } = await supabase.from('events').select('*').order('start_time', { ascending: true }).limit(5);
-            if (data) {
-                setEvents(data.map(e => ({
+            if (eventsData) {
+                setEvents(eventsData.map(e => ({
                     id: e.id,
                     title: e.title,
                     startTime: new Date(e.start_time),
@@ -266,22 +245,21 @@ export default function App() {
                 })));
             }
         };
-        fetchEvents();
 
-        const loadDocs = async () => {
-            const result = await ragService.getDashboardDocs(currentUser.id);
-            setNotionDocs(result.docs);
-            setTrainingMode({ active: result.trainingMode, reason: result.reason });
-        };
-        loadDocs();
+        fetchAllData();
 
-        setAccentColor(currentUser.theme);
+        // Realtime Subscription
+        const tasksChannel = supabase.channel('tasks_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchAllData)
+            .subscribe();
+            
+        // Initial Message
         setMessages([
             { id: Date.now().toString(), role: 'assistant', content: brand.defaultAssistantMessage, timestamp: new Date() }
         ]);
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(tasksChannel);
         };
     }, [currentUser, session]);
 
@@ -346,7 +324,14 @@ export default function App() {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: `✓ Tarea creada: ${title}`, timestamp: new Date() }]);
     };
 
-    const [accentColor, setAccentColor] = useState<string>('emerald');
+    // AUREON LIVE VOICE HOOK
+    const { status: aureonStatus, isTalking: aureonIsTalking, toggleVoice: toggleAureonVoice } = useAureonLive({
+        onTaskCreate: handleVoiceTaskCreate,
+        onKnowledgeQuery: async (q) => {
+            const res = await ragService.search(q, currentUser.organizationId);
+            return res.map(d => d.content).join('\n');
+        }
+    });
 
     useEffect(() => {
         const html = document.documentElement;
@@ -358,19 +343,12 @@ export default function App() {
         }
     }, [themeMode]);
 
-    useEffect(() => {
-        const c = THEMES[accentColor];
-        if (c) {
-            const root = document.documentElement.style;
-            root.setProperty('--primary', c.primary);
-            root.setProperty('--primary-dim', c.primary + '33'); // Increased opacity for liquid feel
-            root.setProperty('--secondary', c.secondary);
-            root.setProperty('--secondary-dim', c.secondary + '33');
-        }
-    }, [accentColor]);
+
 
     if (loadingSession) return <div className="min-h-screen bg-[#020203] flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div></div>;
     if (!session) return <LoginView onLoginSuccess={handleAuthSuccess} />;
+
+
 
     return (
         <div className="min-h-screen bg-[#020203] text-white selection:bg-indigo-500/30 selection:text-indigo-200 overflow-x-hidden font-sans">
@@ -397,20 +375,39 @@ export default function App() {
                 <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }}></div>
             </div>
 
+            {/* MOBILE OVERLAY */}
+            {isMobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-in fade-in"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
+
             <Sidebar 
                 activeView={currentView} 
-                onNavigate={setCurrentView} 
+                onNavigate={(view) => {
+                    setCurrentView(view);
+                    setIsMobileMenuOpen(false);
+                }}
                 user={currentUser} 
                 onLogout={handleLogout} 
+                onOpenSettings={() => setIsSettingsOpen(true)}
                 organizations={organizations}
                 currentOrgId={currentOrgId}
                 onSwitchOrg={setCurrentOrgId}
+                mobileOpen={isMobileMenuOpen}
+                onMobileClose={() => setIsMobileMenuOpen(false)}
             />
 
             <main className={`flex-1 relative min-h-screen flex flex-col transition-all duration-300 ${
                 'md:ml-[72px]' // Match collapsed sidebar width
             }`}>
-                <Header user={currentUser} />
+                <Header 
+                    user={currentUser} 
+                    onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    isMobileMenuOpen={isMobileMenuOpen}
+                    activeView={currentView}
+                />
 
                 <div className="flex-1 mt-14 pb-24">
                     {currentView === 'home' && (
@@ -426,20 +423,39 @@ export default function App() {
                     {currentView === 'agency' && (
                         <NotionView 
                             clients={clients}
+                            services={services}
                             tasks={tasks.filter(t => t.organizationId === currentOrgId)}
                             onToggleTask={handleToggleTask}
                         />
                     )}
 
-                    {currentView === 'flow' && <RAGView />}
+                    {currentView === 'flow' && <RAGView organizationId={currentOrgId} />}
+
+                    {currentView === 'connections' && (
+                        <ConnectionsView 
+                            organizationId={currentOrgId}
+                        />
+                    )}
+
+                    {currentView === 'team' && (
+                        <TeamView 
+                            organizationId={currentOrgId}
+                        />
+                    )}
                 </div>
             </main>
 
             {/* FLOATING CHAT - AUREON UI2GEN */}
             <FloatingChat 
                 tasks={tasks.filter(t => t.organizationId === currentOrgId)}
-                userName={currentUser.full_name}
+                userName={currentUser.name}
                 pendingTaskCount={tasks.filter(t => t.organizationId === currentOrgId && !t.completed).length}
+                organizationId={currentOrgId}
+                organizationName={organizations.find(o => o.id === currentOrgId)?.name}
+                integrations={{
+                    notion: currentOrgId === 'multiversa' ? 'disconnected' : 'connected',
+                    hostinger: currentOrgId === 'multiversa' ? 'connected' : 'disconnected'
+                }}
                 onNavigate={setCurrentView}
                 onAddTask={(task) => {
                     const newTask = {
@@ -459,14 +475,15 @@ export default function App() {
             <AureonDock 
                 activeView={currentView} 
                 onNavigate={setCurrentView} 
-                onVoiceClick={() => alert('Aureon Voice System Iniciado...')} 
+                onVoiceClick={toggleAureonVoice} 
             />
 
             <SettingsPanel
                 isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
                 currentTheme={themeMode} onThemeChange={setThemeMode}
-                currentColor={accentColor} onColorChange={setAccentColor}
-                currentProfileId={currentUser.id} onProfileChange={(id) => { if (PROFILES[id]) setCurrentUser(PROFILES[id]); }}
+                currentProfileId={currentUser.id} 
+                onProfileChange={(id) => { if (PROFILES[id]) setCurrentUser(PROFILES[id]); }}
+                currentOrgId={currentOrgId}
             />
         </div>
     );

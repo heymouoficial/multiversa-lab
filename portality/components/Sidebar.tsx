@@ -23,11 +23,14 @@ interface SidebarProps {
     organizations: Organization[];
     currentOrgId: string;
     onSwitchOrg: (orgId: string) => void;
+    // Mobile Props
+    mobileOpen?: boolean;
+    onMobileClose?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
     activeView, onNavigate, user, onLogout, onOpenSettings,
-    organizations, currentOrgId, onSwitchOrg
+    organizations, currentOrgId, onSwitchOrg, mobileOpen, onMobileClose
 }) => {
     // Get brand based on current Org
     const brand = getCurrentBrand(currentOrgId);
@@ -38,12 +41,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'home' as ViewState, label: 'Inicio', icon: <Home size={20} /> },
         { id: 'agency' as ViewState, label: 'Datos', icon: <Folder size={20} /> },
         { id: 'flow' as ViewState, label: 'RAG', icon: <BookOpen size={20} /> },
+        { id: 'connections' as any, label: 'Conexiones', icon: <Zap size={20} /> },
+        { id: 'team' as any, label: 'Equipo', icon: <User size={20} /> },
     ];
 
     return (
         <aside 
-            className={`fixed left-0 top-0 bottom-0 hidden md:flex flex-col z-50 transition-all duration-300 ease-out bg-[#020203]/90 backdrop-blur-2xl border-r border-white/5 ${
-                isCollapsed ? 'w-[72px]' : 'w-60'
+            className={`fixed left-0 top-0 bottom-0 ${mobileOpen ? 'flex w-64' : 'hidden md:flex'} flex-col z-50 transition-all duration-300 ease-out bg-[#020203]/90 backdrop-blur-2xl border-r border-white/5 ${
+                isCollapsed && !mobileOpen ? 'w-[72px]' : 'w-60' // Force expand on mobile
             }`}
         >
             {/* HEADER: ORG SWITCHER */}

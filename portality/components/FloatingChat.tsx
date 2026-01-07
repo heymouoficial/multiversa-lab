@@ -1,16 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Mic, MicOff, Loader2, CheckCircle2, Clock, Plus } from 'lucide-react';
+import { X, Send, Mic, MicOff, Loader2, CheckCircle2, Clock, Plus, ExternalLink, Database } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { geminiService, AureonMessage, UIAction, AureonContext } from '../services/geminiService';
 import { getCurrentBrand } from '../config/branding';
 
+import { Task, ViewState } from '../types';
+
 interface FloatingChatProps {
-    tasks?: Array<{ id: string; title: string; priority: string; completed: boolean; assignedTo: string }>;
-    onNavigate?: (view: string) => void;
+    tasks?: Task[];
+    onNavigate?: (view: ViewState) => void;
     onAddTask?: (task: { title: string; priority: string; assignedTo: string }) => void;
     userName?: string;
     pendingTaskCount?: number;
+    organizationId?: string;
+    organizationName?: string;
+    integrations?: {
+        notion?: 'connected' | 'disconnected';
+        hostinger?: 'connected' | 'disconnected';
+    };
 }
 
 const FloatingChat: React.FC<FloatingChatProps> = ({ 
@@ -18,7 +26,10 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
     onNavigate,
     onAddTask,
     userName = 'Usuario',
-    pendingTaskCount = 0
+    pendingTaskCount = 0,
+    organizationId,
+    organizationName,
+    integrations
 }) => {
     const brand = getCurrentBrand();
     const [isOpen, setIsOpen] = useState(false);
@@ -38,7 +49,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
         if (isOpen && messages.length === 0) {
             setMessages([{
                 role: 'assistant',
-                content: `¡Hola ${userName}! Soy Aureon, el núcleo de inteligencia de Elevat. ¿En qué puedo ayudarte hoy?\n\n💡 Prueba: *"Muéstrame mis tareas pendientes"* o *"Quiero agregar una tarea nueva"*`,
+                content: `¡Hola ${userName}! Soy **Aureon**, la Superinteligencia de **Multiversa Lab**.\nUtilizo la tecnología de mis creadores para asistirte con la Inteligencia de Portality en **[${organizationName || 'esta organización'}]**.\n\n¿En qué puedo ayudarte hoy?\n\n💡 Prueba: *"¿Tengo tareas pendientes?"* o *"¿Cómo está conectada mi organización?"*`,
                 timestamp: new Date(),
             }]);
         }
@@ -58,10 +69,16 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
         setIsLoading(true);
 
         try {
+            const { ragService } = await import('../services/ragService');
+            const ragContext = await ragService.retrieveContext(inputValue, 'user', organizationId);
+
             const context: AureonContext = {
                 userName,
                 pendingTasks: pendingTaskCount,
                 currentView: 'home',
+                ragContext: ragContext,
+                currentOrgName: organizationName,
+                integrations: integrations
             };
 
             const response = await geminiService.chat(inputValue, context);
@@ -170,6 +187,23 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
                             <p className="text-lg font-bold text-amber-400">{tasks.filter(t => t.priority === 'high' && !t.completed).length}</p>
                             <p className="text-[10px] text-gray-500">Urgentes</p>
                         </div>
+                    </div>
+                );
+
+            case 'connect_notion':
+                return (
+                    <div className="mt-3 p-4 rounded-xl border border-dashed border-white/20 bg-white/[0.02] flex flex-col items-center text-center">
+                        <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-3">
+                            <Database size={20} className="text-white" />
+                        </div>
+                        <p className="text-xs text-white font-bold mb-1">Sin espacio en Notion</p>
+                        <p className="text-[10px] text-gray-500 mb-4">Aún no has conectado un espacio de trabajo para esta organización.</p>
+                        <button 
+                            onClick={() => onNavigate?.('connections')}
+                            className="w-full py-2 rounded-lg bg-white text-black text-xs font-bold hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                        >
+                            Conectar Notion <ExternalLink size={12} />
+                        </button>
                     </div>
                 );
 

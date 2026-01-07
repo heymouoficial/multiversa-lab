@@ -18,7 +18,11 @@ interface KnowledgeDoc {
     updated_at: string;
 }
 
-const RAGView: React.FC = () => {
+interface RAGViewProps {
+    organizationId?: string;
+}
+
+const RAGView: React.FC<RAGViewProps> = ({ organizationId }) => {
     const brand = getCurrentBrand();
     const [searchQuery, setSearchQuery] = useState('');
     const [documents, setDocuments] = useState<KnowledgeDoc[]>([]);
@@ -26,25 +30,61 @@ const RAGView: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Fetch documents from Supabase
+    const [uploadStatus, setUploadStatus] = useState<string>('');
+
+    // Fetch documents from Supabase (NEW TABLE)
     useEffect(() => {
         fetchDocuments();
-    }, []);
+    }, [organizationId]); // Refetch when org changes
 
     const fetchDocuments = async () => {
         setIsLoading(true);
         try {
+            // Fetch from DOCUMENTS table (Real Schema)
             const { data, error } = await supabase
-                .from('agency_knowledge')
+                .from('documents')
                 .select('*')
+                // .eq('organization_id', organizationId) // Uncomment if documents has org_id in schema, otherwise it might be global or RLS handled
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
-            setDocuments(data || []);
+            
+            // Map to KnowledgeDoc interface
+            const mapped: KnowledgeDoc[] = (data || []).map(d => ({
+                id: d.id,
+                source: d.name,
+                content: d.content || '',
+                tenant_id: organizationId || 'default',
+                meta: d.metadata || { category: 'general' },
+                created_at: d.created_at,
+                updated_at: d.created_at
+            }));
+
+            setDocuments(mapped);
         } catch (err) {
             console.error('[RAG] Error fetching docs:', err);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadStatus('Iniciando carga...');
+        try {
+            // Import dynamically since ragService depends on geminiService
+            const { ragService } = await import('../services/ragService');
+            await ragService.ingestFile(file, organizationId, (status) => {
+                setUploadStatus(status);
+            });
+            setUploadStatus('✅ Completado');
+            setTimeout(() => setUploadStatus(''), 3000);
+            fetchDocuments(); // Refresh list
+        } catch (err) {
+            console.error(err);
+            setUploadStatus('❌ Error en vectorización');
         }
     };
 
@@ -84,24 +124,40 @@ const RAGView: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
                         <Database size={24} style={{ color: brand.colors.primary }} />
-                        Base de Conocimiento
+                        Base de Conocimiento (RAG)
                     </h1>
-                    <p className="text-sm text-gray-500">Documentos vectorizados • Aureon los recuerda siempre</p>
+                    <p className="text-sm text-gray-500">
+                        {organizationId ? `Organización: ${organizationId}` : 'Selecciona una organización'} • Vectorización Activa (Gemini)
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
+                     <label className="cursor-pointer px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl flex items-center gap-2 text-sm font-medium text-white transition-all">
+                        <Upload size={16} />
+                        Subir Documento
+                        <input type="file" className="hidden" onChange={handleFileUpload} accept=".md,.txt,.json" />
+                    </label>
+
                     <button 
                         onClick={handleRefresh}
                         disabled={isRefreshing}
                         className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
                     >
                         <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-                        Actualizar
                     </button>
                 </div>
             </div>
 
+            {/* UPLOAD STATUS BAR */}
+            {uploadStatus && (
+                <div className="mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center gap-3">
+                    <Sparkles size={16} className="text-blue-400 animate-pulse" />
+                    <span className="text-sm text-blue-200 font-mono">{uploadStatus}</span>
+                </div>
+            )}
+            
             {/* STATS */}
             <div className="grid grid-cols-3 gap-4 mb-6">
+
                 <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl">
                     <div className="flex items-center justify-between">
                         <Database size={18} style={{ color: brand.colors.primary }} />

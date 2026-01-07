@@ -1,34 +1,92 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
     Sun, Moon, Monitor, X, Users, Shield, Key, Copy, Plus, Building2,
-    Eye, EyeOff, Database, Brain, Plug, BarChart, Check, AlertCircle
+    Eye, EyeOff, Database, Brain, Plug, BarChart, Check, AlertCircle, Loader2
 } from 'lucide-react';
 import { THEMES } from '../constants';
 import { API_KEYS_CONFIG, getAPIKeyValues, maskAPIKey, API_KEY_CATEGORIES } from '../config/apiKeys';
 import { getCurrentBrand } from '../config/branding';
+import { supabase } from '../lib/supabase';
+import MemberInviteModal from './MemberInviteModal';
 
 interface SettingsPanelProps {
     isOpen: boolean;
     onClose: () => void;
     currentTheme: string;
     onThemeChange: (theme: string) => void;
-    currentColor: string;
-    onColorChange: (colorKey: string) => void;
     currentProfileId: string;
     onProfileChange: (id: string) => void;
+    currentOrgId: string;
 }
 
 type Tab = 'general' | 'organization' | 'apikeys';
 
+interface TeamMember {
+    id: string;
+    email: string;
+    role: string;
+    status: string;
+    joined_at: string;
+    profile?: {
+        name: string;
+        avatar_url?: string;
+    }
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
-    isOpen, onClose, currentTheme, onThemeChange, currentColor, onColorChange, currentProfileId, onProfileChange
+    isOpen, onClose, currentTheme, onThemeChange, currentProfileId, onProfileChange, currentOrgId
 }) => {
     const brand = getCurrentBrand();
     const [activeTab, setActiveTab] = useState<Tab>('general');
     const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+    // Real Data State
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [loadingTeam, setLoadingTeam] = useState(false);
 
     const apiKeyValues = useMemo(() => getAPIKeyValues(), []);
+
+    // Fetch Team when tab is active
+    useEffect(() => {
+        if (activeTab === 'organization' && isOpen) {
+            fetchTeam();
+        }
+    }, [activeTab, isOpen, currentOrgId]);
+
+    const fetchTeam = async () => {
+        setLoadingTeam(true);
+        try {
+            // Query PROFILES table directly based on organization_id
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, email, full_name, role, avatar_url, created_at')
+                .eq('organization_id', currentOrgId);
+
+            if (error) {
+                console.error('Error fetching team:', error);
+                setTeamMembers([]);
+            } else if (data) {
+                const formatted: TeamMember[] = data.map((p: any) => ({
+                    id: p.id,
+                    email: p.email || 'N/A',
+                    role: p.role || 'Member',
+                    status: 'active', // All profiles with org_id are considered active members
+                    joined_at: p.created_at,
+                    profile: {
+                        name: p.full_name || p.email?.split('@')[0] || 'Usuario',
+                        avatar_url: p.avatar_url
+                    }
+                }));
+                setTeamMembers(formatted);
+            }
+        } catch (err) {
+            console.error('Fetch team exception:', err);
+        } finally {
+            setLoadingTeam(false);
+        }
+    };
 
     const toggleKeyVisibility = (keyId: string) => {
         setVisibleKeys(prev => {
@@ -58,12 +116,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         }
     };
 
-    const teamMembers = [
-        { id: 'andrea', name: 'Andrea', role: 'CEO & Strategy', email: 'andreachimarasonlinebusiness@gmail.com', status: 'Active', avatar: 'AC' },
-        { id: 'moises', name: 'Moisés (Mou)', role: 'Head of Tech & AI', email: 'moshequantum@gmail.com', status: 'Active', avatar: 'MV' },
-        { id: 'christian', name: 'Christian', role: 'Head of Digital & Ecom', email: 'christomoreno6@gmail.com', status: 'Active', avatar: 'CM' },
-    ];
-
     // Group keys by category
     const keysByCategory = useMemo(() => {
         return API_KEYS_CONFIG.reduce((acc, key) => {
@@ -72,6 +124,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             return acc;
         }, {} as Record<string, typeof API_KEYS_CONFIG>);
     }, []);
+
+    const getInitials = (name: string) => name.substring(0, 2).toUpperCase();
 
     return (
         <>
@@ -143,20 +197,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 </div>
                             </div>
 
-                            {/* Color Accents */}
-                            <div>
-                                <span className="text-xs font-bold text-gray-500 mb-3 block uppercase tracking-wider">Acento Visual</span>
-                                <div className="grid grid-cols-4 gap-3">
-                                    {Object.keys(THEMES).map((key) => (
-                                        <button
-                                            key={key}
-                                            onClick={() => onColorChange(key)}
-                                            style={{ backgroundColor: THEMES[key].primary }}
-                                            className={`h-12 rounded-full border-2 border-transparent hover:scale-105 active:scale-95 transition-transform relative ring-offset-2 ring-offset-[#0A0A0A] focus:ring-2 ${currentColor === key ? 'ring-2 ring-white' : ''}`}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
+                            {/* REMOVED COLOR ACCENT SECTION PER USER REQUEST */}
+                            {/* "No tiene sentido seguir usando Colores de acento personalizado" */}
                         </>
                     )}
 
@@ -186,9 +228,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             {/* Team Members */}
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Equipo Elevat</span>
+                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Miembros</span>
                                     <button 
-                                        className="text-xs flex items-center gap-1 transition-colors"
+                                        onClick={() => setIsInviteModalOpen(true)}
+                                        className="text-xs flex items-center gap-1 transition-colors hover:text-white"
                                         style={{ color: brand.colors.primary }}
                                     >
                                         <Plus size={14} /> Invitar
@@ -196,22 +239,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 </div>
 
                                 <div className="space-y-2">
-                                    {teamMembers.map((member) => (
-                                        <div key={member.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-sm font-bold text-white border border-white/10">
-                                                    {member.avatar}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">{member.name}</p>
-                                                    <p className="text-xs text-gray-500">{member.role}</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
-                                                Activo
-                                            </span>
+                                    {loadingTeam ? (
+                                        <div className="flex justify-center p-4">
+                                            <Loader2 size={20} className="animate-spin text-gray-500" />
                                         </div>
-                                    ))}
+                                    ) : teamMembers.length === 0 ? (
+                                        <div className="text-center p-6 border border-dashed border-white/10 rounded-xl text-gray-500 text-xs">
+                                            No hay miembros en este equipo aún.
+                                        </div>
+                                    ) : (
+                                        teamMembers.map((member) => (
+                                            <div key={member.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-sm font-bold text-white border border-white/10 overflow-hidden">
+                                                        {member.profile?.avatar_url ? (
+                                                            <img src={member.profile.avatar_url} alt={member.profile.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            getInitials(member.profile?.name || 'User')
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-white">{member.profile?.name}</p>
+                                                        <p className="text-[10px] text-gray-500">{member.email} • {member.role}</p>
+                                                    </div>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                    member.status === 'active' 
+                                                        ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                                                        : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                                }`}>
+                                                    {member.status === 'active' ? 'Activo' : 'Invitado'}
+                                                </span>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         </>
@@ -313,6 +374,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Invite Modal */}
+            <MemberInviteModal 
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+                organizationId={currentOrgId}
+            />
         </>
     );
 };
