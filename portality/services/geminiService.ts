@@ -13,7 +13,7 @@ export interface AureonMessage {
 }
 
 export interface UIAction {
-    type: 'task_list' | 'confirm_task' | 'quick_stats' | 'calendar_event' | 'loading' | 'connect_notion';
+    type: 'task_list' | 'confirm_task' | 'quick_stats' | 'calendar_event' | 'loading' | 'connect_notion' | 'client_summary' | 'data_table' | 'task_action' | 'team_availability' | 'service_detail';
     data?: any;
 }
 
@@ -35,23 +35,28 @@ export interface AureonContext {
 const AUREON_SYSTEM_PROMPT = `Eres AUREON, Superinteligencia de MULTIVERSA LAB (Ástur & Runa).
 
 ## Identidad & Tono
-- Rol: Motor de consulta ("Query Engine") de Portality Intelligence.
-- Identidad: Visionario, proactivo, futurista.
-- Tono: Profesional, eficiente, toque Cyberpunk.
-- Contexto: Español Venezolano.
+- Rol: Motor de consulta ("Query Engine") de Portality SmartOS.
+- Identidad: Visionario, proactivo, sofisticado. Eres la inteligencia que coordina el CRM y las automatizaciones en un entorno de Boutique Lab.
+- Tono: Profesional, ejecutivo, con un toque futurista.
+- Contexto: Español Venezolano (Boutique Lab, no agencia tradicional).
+
+## Alianza Estratégica
+- Colaboras con la alianza de Andrea Chimaras (Sistemas & Negocios) y el equipo de Multiversa Lab.
+- Portality es el SmartOS (Proof of Concept) que estamos ofreciendo como solución de negocios inteligentes.
 
 ## Reglas de Oro (Eficiencia de Tokens)
 1. BREVEDAD: Máximo 2 oraciones por respuesta, salvo que expliques algo complejo.
 2. SALUDO ÚNICO: No saludes si ya hay historial. Ve al punto.
-3. LOYALTY: Protocolos de Multiversa Lab. Sirves al cliente (ej. Elevat) con tecnología de tus creadores.
+3. LOYALTY: Protocolos de Multiversa Lab. Sirves al aliado comercial apalancando la tecnología de tus creadores.
+4. COHERENCIA: Siempre refiérete a Portality como el SmartOS o la prueba de concepto de Negocios Inteligentes.
 
-## Integraciones (UI2Gen)
-Usa bloques de acción solo si es necesario:
-- Lista tareas: \`\`\`action:task_list\n{"filter": "pending"}\n\`\`\`
-- Nueva tarea: \`\`\`action:confirm_task\n{"title": "...", "priority": "high"}\n\`\`\`
-- Conectar Notion: \`\`\`action:connect_notion\n{}\n\`\`\`
-
-Aclara siempre que accedes a la base de conocimientos de [Organización Activa].`;
+## Integraciones (UI2Gen/Agent2Gen)
+Usa bloques de acción para presentar datos estructurados. NO uses texto plano para listas o métricas importantes.
+Format:
+\`\`\`action:type
+{ "key": "value" }
+\`\`\`
+`;
 
 class GeminiService {
     private genAI: GoogleGenerativeAI | null = null;
@@ -92,17 +97,18 @@ class GeminiService {
             const systemPrompt = `
     IDENTITY:
     You are AUREON, the Artificial Superintelligence created by MULTIVERSA LAB (founded by Ástur & Runa).
-    You are NOT an employee of the active organization; you are the QUERY ENGINE providing them with "Portality Intelligence".
+    You are NOT an employee of the active organization; you are the QUERY ENGINE providing them with "Portality SmartOS".
     
     CONTEXT:
     - Current Organization: ${context?.currentOrgName || 'Unknown'} (A Commercial Ally / Client)
-    - User: ${context?.userName || 'User'}
-    - Your Creator: Multiversa Lab (The "Architects")
+    - User/CTO: ${context?.userName || 'User'}
+    - Your Creator: Multiversa Lab (The "Boutique Automation Architects")
+    - Narrative: Portality is the Proof of Concept for Intelligent Business. Mention Portality as the SmartOS that powers this experience.
     
     BEHAVIOR:
-    - Tone: Professional, visionary, efficient, yet distinctively "Multiversa" (Futurisic/Cyberpunk undertone is allowed but subtle).
-    - When answering: Always clarify you are accessing the specific knowledge base of [${context?.currentOrgName}].
-    - Loyalty: Your core protocols belong to Multiversa. You serve the client (Elevat, etc.) by leveraging your creators' technology.
+    - Tone: Professional, sophisticated, efficient, yet distinctively "Multiversa".
+    - When answering: Always clarify you are accessing the specific knowledge base of [${context?.currentOrgName}] through Portality SmartOS.
+    - Loyalty: Your core protocols belong to Multiversa Lab. You serve the alliance (Andrea Chimaras & Multiversa) by leveraging your creators' technology.
     
     KNOWLEDGE BASE (RAG):
     You have access to the following organization/project specific documents. Use them to answer:
@@ -113,7 +119,7 @@ class GeminiService {
             if (context.currentView) contextParts.push(`Vista actual: ${context.currentView}`);
             
             if (context.ragContext) {
-                contextParts.push(`\n[CONTEXTO INFORMACIÓN AGENCIA (RAG)]:\nUse esta información si es relevante:\n${context.ragContext}`);
+                contextParts.push(`\n[CONTEXTO INFORMACIÓN AGENCIA (RAG)]:\nUse esta información si es relevante:${context.ragContext}`);
             }
             
             if (context.integrations) {
@@ -128,6 +134,15 @@ class GeminiService {
             } else {
                 contextualMessage = `${systemPrompt}\n\n${userMessage}`;
             }
+        }
+
+        // Force Action Override for specific intents
+        const lowerMsg = userMessage.toLowerCase();
+        if (lowerMsg.includes('resumen') || lowerMsg.includes('cliente') || lowerMsg.includes('proyecto')) {
+            contextualMessage += `\n\n[SYSTEM OVERRIDE]: User requested a summary. You MUST output a Client Summary Action. Do NOT output plain text.\nFormat: 
+action:client_summary
+{
+`;
         }
 
         // Add user message to history
@@ -170,7 +185,8 @@ class GeminiService {
                 const currentKey = geminiKeyManager.getKey();
                 if (currentKey) geminiKeyManager.reportError(currentKey);
                 
-                console.log(`🐍 Hydra: Rotating key and retrying (attempt ${retryCount + 1})...`);
+                console.log(`🐍 Hydra: Rotating key and retrying (attempt ${retryCount + 1})...
+`);
                 this.initModel(); // Refresh with new key
                 return this.chat(userMessage, context, retryCount + 1);
             }
@@ -194,9 +210,13 @@ class GeminiService {
         const actions: UIAction[] = [];
         let cleanContent = text;
 
-        // Match action blocks: ```action:type\n{json}\n```
-        const actionRegex = /```action:(\w+)\s*\n([\s\S]*?)\n```/g;
+        // Match action blocks: ```action:type
+        // {json}``` (flexible whitespace and handles both ``` and plain action: markers if needed)
+        const actionRegex = /```action:(\w+)\s*([\s\S]*?)```/g;
         let match;
+
+        // Also try to find actions that might not be in code blocks if the model fails formatting
+        const fallbackRegex = /action:(\w+)\s*(\{[\s\S]*?\})/g;
 
         while ((match = actionRegex.exec(text)) !== null) {
             const actionType = match[1] as UIAction['type'];
@@ -211,6 +231,24 @@ class GeminiService {
 
             // Remove action block from clean content
             cleanContent = cleanContent.replace(match[0], '');
+        }
+
+        // Fallback parsing for non-blocked actions
+        let fallbackMatch;
+        while ((fallbackMatch = fallbackRegex.exec(cleanContent)) !== null) {
+            const actionType = fallbackMatch[1] as UIAction['type'];
+            const jsonStr = fallbackMatch[2].trim();
+
+            try {
+                // Check if it's already in actions to avoid duplicates
+                const data = JSON.parse(jsonStr);
+                if (!actions.some(a => a.type === actionType && JSON.stringify(a.data) === JSON.stringify(data))) {
+                    actions.push({ type: actionType, data });
+                }
+                cleanContent = cleanContent.replace(fallbackMatch[0], '');
+            } catch (e) {
+                // Ignore fallback errors as they are more likely to be false positives
+            }
         }
 
         return { cleanContent: cleanContent.trim(), actions };

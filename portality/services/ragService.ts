@@ -4,6 +4,9 @@ import { NotionPage, KnowledgeSource } from '../types';
 // In-Memory Vector Store - User uploaded content only
 let MEMORY_VECTOR_STORE: KnowledgeSource[] = [];
 
+// Simple Embedding Cache to save API calls
+const EMBEDDING_CACHE = new Map<string, number[]>();
+
 // Training Mode State
 let TRAINING_MODE_ACTIVE = false;
 let TRAINING_MODE_REASON = '';
@@ -11,15 +14,21 @@ let TRAINING_MODE_REASON = '';
 export const ragService = {
 
     /**
-     * Returns whether the system is in training mode (no real data yet)
+     * Returns whether the system is in training mode
      */
     isTrainingMode(): { active: boolean; reason: string } {
         return { active: TRAINING_MODE_ACTIVE, reason: TRAINING_MODE_REASON };
     },
 
     /**
-     * Ingests a raw content string (Clipboard or Text File)
-     * Stores in Supabase if available, otherwise in-memory
+     * Returns all available sources
+     */
+    async getSources(): Promise<KnowledgeSource[]> {
+        return MEMORY_VECTOR_STORE;
+    },
+
+    /**
+     * Ingests a raw content string
      */
     async ingestDocument(
         title: string, 
@@ -37,9 +46,8 @@ export const ragService = {
         }
 
         onStatus?.(`Analyzing content: ${title}...`);
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 300));
 
-        onStatus?.('Parsing structure & generating chunks...');
         const chunks = content.split(/\n\n+/).filter(c => c.length > 20);
         
         const newSource: KnowledgeSource = {
@@ -55,9 +63,7 @@ export const ragService = {
         };
 
         try {
-            onStatus?.(`Connecting to Neural Database (Supabase)...`);
-            
-            // 1. Insert Parent Source
+            onStatus?.(`Persisting Source...`);
             const { error: sourceError } = await supabase.from('knowledge_sources').insert({
                 id: newSource.id,
                 name: newSource.name,
@@ -71,269 +77,233 @@ export const ragService = {
 
             if (sourceError) throw sourceError;
 
-            // 2. Generate Embeddings & Insert Chunks
-            onStatus?.(`Generating ${chunks.length} vector embeddings (Gemini)...`);
+            onStatus?.(`Vectorizing ${chunks.length} chunks...`);
+            const { geminiService } = await import('./geminiService');
             
-            // Limit concurrency to avoid rate limits
+            // Vectorize in small batches to avoid rate limits
             for (let i = 0; i < chunks.length; i++) {
                 const chunk = chunks[i];
-                onStatus?.(`Vectorizing chunk ${i + 1}/${chunks.length}...`);
-                
                 try {
-                    const embedding = await import('./geminiService').then(m => m.geminiService.embedText(chunk));
-                    
-                    const { error: chunkError } = await supabase.from('document_chunks').insert({
+                    const embedding = await geminiService.embedText(chunk);
+                    await supabase.from('document_chunks').insert({
                         source_id: newSource.id,
                         organization_id: organizationId,
                         content: chunk,
                         embedding: embedding,
                         metadata: { source: title, index: i }
                     });
-
-                    if (chunkError) {
-                        console.error('Chunk insert error:', chunkError);
-                    }
                 } catch (embError) {
-                    console.error('Embedding generation failed:', embError);
+                    console.error('Embedding failed for chunk', i, embError);
                 }
             }
 
-            onStatus?.('✅ Successfully vectorized and persisted.');
-            console.log(`[RAG] Document vectorized: ${title}`);
-
+            onStatus?.('✅ Vectorization complete.');
         } catch (err) {
-            onStatus?.('⚠️ Vectorization failed. Using local memory backup.');
-            console.warn(`[RAG] Supabase/Vector error:`, err);
+            onStatus?.('⚠️ Supabase sync failed. Using local backup.');
             MEMORY_VECTOR_STORE.push(newSource);
         }
 
         return newSource;
     },
 
-    /**
-     * Simulates processing a File object (drag & drop)
-     */
     async ingestFile(file: File, organizationId: string | undefined, onStatus?: (status: string) => void): Promise<KnowledgeSource> {
-        return new Promise((resolve) => {
-            onStatus?.(`Reading file stream: ${file.name}...`);
-            const isTextBased = file.type.includes('text') || file.name.endsWith('.md') || file.name.endsWith('.json');
+        console.log(`[RAG] Processing file: ${file.name} (${file.type})`);
+        onStatus?.(`Reading file: ${file.name}...`);
 
-            if (isTextBased) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const content = e.target?.result as string;
-                    this.ingestDocument(file.name, content, 'file', organizationId, 'txt', onStatus).then(resolve);
-                };
-                reader.readAsText(file);
-            } else {
-                // For PDF/DOCX - show training mode indicator
-                const trainingContent = `### Documento Procesado: ${file.name}\n\n**Archivo Binario Detectado**\n- Tamaño: ${(file.size / 1024).toFixed(2)} KB\n- Tipo: \`${file.type}\`\n\n> ⚠️ La extracción de PDF/DOCX requiere servicios adicionales. Este documento está indexado para búsqueda básica.`;
+        return new Promise(async (resolve, reject) => {
+            try {
+                const extension = file.name.split('.').pop()?.toLowerCase();
+                const arrayBuffer = await file.arrayBuffer();
 
-                let fmt: KnowledgeSource['format'] = 'text';
-                if (file.name.endsWith('.pdf')) fmt = 'pdf';
-                if (file.name.includes('doc')) fmt = 'docx';
+                let content = '';
+                let format: KnowledgeSource['format'] = 'text';
 
-                this.ingestDocument(file.name, trainingContent, 'file', organizationId, fmt, onStatus).then(resolve);
+                if (extension === 'pdf' || file.type === 'application/pdf') {
+                    onStatus?.(`Extracting text from PDF binary...`);
+                    const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+                    // Use a CDN for the worker to avoid Vite build complexity for now
+                    GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
+                    
+                    const loadingTask = getDocument({ data: arrayBuffer });
+                    const pdf = await loadingTask.promise;
+                    let fullText = '';
+                    
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                        fullText += pageText + '\n\n';
+                        onStatus?.(`Processing PDF: page ${i}/${pdf.numPages}...`);
+                    }
+                    content = fullText;
+                    format = 'text';
+                } 
+                else if (extension === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+                    onStatus?.(`Extracting text from DOCX binary...`);
+                    const mammoth = await import('mammoth');
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    content = result.value;
+                    format = 'text';
+                }
+                else if (file.type.includes('text') || extension === 'md' || extension === 'json' || extension === 'txt') {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target?.result as string;
+                        this.ingestDocument(file.name, text, 'file', organizationId, 'text', onStatus).then(resolve);
+                    };
+                    reader.readAsText(file);
+                    return; // Early return as FileReader is async
+                } 
+                else {
+                    onStatus?.(`⚠️ Unsupported format: ${extension}. Indexing as metadata only.`);
+                    content = `### File: ${file.name}\nFormat: ${extension}\nUnsupported binary content. High-level indexing only.`;
+                    format = 'text';
+                }
+
+                if (content) {
+                    const source = await this.ingestDocument(file.name, content, 'file', organizationId, format, onStatus);
+                    resolve(source);
+                } else {
+                    reject(new Error('Failed to extract content from file.'));
+                }
+            } catch (error) {
+                console.error('[RAG] File ingestion error:', error);
+                onStatus?.(`❌ Error indexing ${file.name}`);
+                reject(error);
             }
         });
     },
 
     /**
-     * Returns all active sources from Supabase + Memory
+     * Retrieves relevant context using optimized parallel search.
      */
-    async getSources(): Promise<KnowledgeSource[]> {
-        const sources: KnowledgeSource[] = [...MEMORY_VECTOR_STORE];
+    async retrieveContext(query: string, role: string, organizationId?: string): Promise<string> {
+        console.log(`🚀 [RAG] Optimizing retrieval for query: "${query}"`);
+        const startTime = Date.now();
 
         try {
-            const { data, error } = await supabase
-                .from('knowledge_sources')
-                .select('*')
-                .order('created_at', { ascending: false });
+            // 1. Parallelize all search sources
+            const [vectorResults, keywordResults, notionDocs, flowiseResult] = await Promise.all([
+                this.performVectorSearch(query, organizationId),
+                this.performKeywordSearch(query),
+                this.getNotionDocs(role),
+                this.queryFlowise(query, organizationId)
+            ]);
 
-            if (!error && data) {
-                data.forEach(row => {
-                    sources.push({
-                        id: row.id,
-                        name: row.name,
-                        type: row.type,
-                        format: row.format,
-                        status: 'active',
-                        content: row.content,
-                        chunks: row.chunks,
-                        lastSynced: new Date(row.created_at),
-                        metadata: row.metadata
-                    });
-                });
+            const contextResults: string[] = [...vectorResults];
+
+            // 2. Add Flowise if available
+            if (flowiseResult) {
+                contextResults.push(`[FLOWISE INTEL]: ${flowiseResult}`);
             }
-        } catch (err) {
-            console.warn('[RAG] Could not fetch from Supabase:', err);
-        }
 
-        return sources;
+            // 3. Supplement with keyword matches if vector is sparse
+            if (contextResults.length < 3) {
+                contextResults.push(...keywordResults.slice(0, 3));
+            }
+
+            // 4. Add relevant Notion context
+            notionDocs.forEach(doc => {
+                if (doc.title.toLowerCase().includes(query.toLowerCase()) || doc.summary.toLowerCase().includes(query.toLowerCase())) {
+                    contextResults.push(`[NOTION]: ${doc.title} - ${doc.summary}`);
+                }
+            });
+
+            const duration = Date.now() - startTime;
+            console.log(`✅ [RAG] Context retrieved in ${duration}ms (${contextResults.length} matches)`);
+
+            if (contextResults.length === 0) {
+                return "SEARCH RESULT: No specific context found. System in training mode.";
+            }
+
+            return `CONTEXT DATA (${contextResults.length} matches):\n\n${contextResults.slice(0, 5).join('\n\n---\n\n')}`;
+
+        } catch (err) {
+            console.error('[RAG] Retrieval failed:', err);
+            return "SEARCH RESULT: Technical error during context retrieval.";
+        }
     },
 
     /**
-     * Retrieves relevant context based on user role and query.
-     * Uses semantic search (Vector) in Supabase and falls back to text search if needed.
+     * Semantic Search via Supabase Vector
      */
-    async retrieveContext(query: string, role: string, organizationId?: string): Promise<string> {
-        console.log(`[RAG] Vector searching for role: ${role} query: ${query} (Org: ${organizationId})`);
+    async performVectorSearch(query: string, organizationId?: string): Promise<string[]> {
+        if (!organizationId) return [];
 
-        let contextResults: string[] = [];
-
-        // 1. Semantic Search (Supabase Vector)
         try {
-            if (organizationId) {
-                // Generate embedding for the query
-                const queryEmbedding = await import('./geminiService').then(m => m.geminiService.embedText(query));
-                
-                const { data: vectorResults, error: vectorError } = await supabase.rpc('match_documents', {
-                    query_embedding: queryEmbedding,
-                    match_threshold: 0.5, // Refinable
-                    match_count: 5,
-                    filter_organization_id: organizationId
-                });
-
-                if (!vectorError && vectorResults) {
-                    vectorResults.forEach((res: any) => {
-                        contextResults.push(`SOURCE: ${res.metadata?.source || 'Neural DB'} (Vector Match)\nCONTENT: ${res.content}`);
-                    });
-                } else if (vectorError) {
-                    console.warn('[RAG] Vector search RPC failed, falling back to keyword search:', vectorError);
-                }
+            let embedding = EMBEDDING_CACHE.get(query);
+            if (!embedding) {
+                const { geminiService } = await import('./geminiService');
+                embedding = await geminiService.embedText(query);
+                EMBEDDING_CACHE.set(query, embedding);
             }
+
+            const { data, error } = await supabase.rpc('match_documents', {
+                query_embedding: embedding,
+                match_threshold: 0.5,
+                match_count: 5,
+                filter_organization_id: organizationId
+            });
+
+            if (error) throw error;
+            return (data || []).map((res: any) => `SOURCE: ${res.metadata?.source || 'Neural DB'} (Vector)\nCONTENT: ${res.content}`);
         } catch (err) {
-            console.warn('[RAG] Semantic search unavailable:', err);
+            console.warn('[RAG] Vector search failed:', err);
+            return [];
         }
+    },
 
-        // 2. Keyword Fallback (Legacy/Memory)
-        if (contextResults.length < 2) {
-            // Search in Supabase knowledge_sources (Keyword)
-            try {
-                const { data, error } = await supabase
-                    .from('knowledge_sources')
-                    .select('name, chunks, format')
-                    .limit(5);
+    /**
+     * Keyword Search via Supabase + Memory
+     */
+    async performKeywordSearch(query: string): Promise<string[]> {
+        const results: string[] = [];
+        const terms = query.toLowerCase().split(' ').filter(t => t.length > 3);
+        if (terms.length === 0) return [];
 
-                if (!error && data) {
-                    const queryTerms = query.toLowerCase().split(' ').filter(w => w.length > 3);
-
-                    data.forEach(source => {
-                        if (source.chunks) {
-                            source.chunks.forEach((chunk: string) => {
-                                const chunkLower = chunk.toLowerCase();
-                                const matchCount = queryTerms.reduce((acc, term) => acc + (chunkLower.includes(term) ? 1 : 0), 0);
-                                if (matchCount > 0) {
-                                    contextResults.push(`SOURCE: ${source.name} (Keyword Match)\nCONTENT: ${chunk}`);
-                                }
-                            });
-                        }
-                    });
-                }
-            } catch (err) {
-                console.warn('[RAG] Supabase keyword search unavailable:', err);
-            }
-        }
-
-        // 2. Search in In-Memory Store (User Uploaded)
-        const queryTerms = query.toLowerCase().split(' ').filter(w => w.length > 3);
-        MEMORY_VECTOR_STORE.forEach(source => {
-            if (source.chunks) {
-                source.chunks.forEach(chunk => {
-                    const chunkLower = chunk.toLowerCase();
-                    const matchCount = queryTerms.reduce((acc, term) => acc + (chunkLower.includes(term) ? 1 : 0), 0);
-                    if (matchCount > 0) {
-                        contextResults.push(`SOURCE: ${source.name} (${source.format})\nCONTENT: ${chunk}`);
+        try {
+            const { data } = await supabase.from('knowledge_sources').select('name, content').limit(10);
+            if (data) {
+                data.forEach(s => {
+                    if (terms.some(t => s.content?.toLowerCase().includes(t))) {
+                        results.push(`SOURCE: ${s.name} (Keyword)\nCONTENT: ${s.content.substring(0, 500)}...`);
                     }
                 });
             }
-        });
+        } catch {} // Ignore errors for this fallback
 
-        // 3. Search in Notion (if connected)
-        const notionDocs = await this.getNotionDocs(role);
-        notionDocs.forEach(doc => {
-            if (doc.title.toLowerCase().includes(query.toLowerCase()) || doc.summary.toLowerCase().includes(query.toLowerCase())) {
-                contextResults.push(`NOTION DOC: ${doc.title}\nSUMMARY: ${doc.summary}`);
-            }
-        });
-
-        if (contextResults.length === 0) {
-            return "SEARCH RESULT: No hay documentos en la base de conocimiento que coincidan con tu consulta. El sistema está en fase de entrenamiento. Responde con información general y transparencia sobre la falta de datos específicos.";
-        }
-
-        return `FOUND ${contextResults.length} DOCUMENTS:\n\n${contextResults.slice(0, 5).join('\n\n---\n\n')}`;
+        return results;
     },
 
     /**
-     * Fetches real documents from Notion API
-     * Falls back to training mode if no data available
+     * Flowise Integration Placeholder
+     */
+    async queryFlowise(query: string, organizationId?: string): Promise<string | null> {
+        const flowiseUrl = import.meta.env.VITE_FLOWISE_API_URL || 'https://rag.elevatmarketing.com/api/v1/prediction/YOUR-ID';
+        // In Alpha, we might just log or do a dry-run fetch
+        // For now, returning null until specific API ID is provided in .env
+        return null; 
+    },
+
+    /**
+     * Notion Cache Retrieval
      */
     async getNotionDocs(role: string): Promise<NotionPage[]> {
-        const notionToken = import.meta.env.VITE_NOTION_TOKEN;
-
-        if (!notionToken) {
-            TRAINING_MODE_ACTIVE = true;
-            TRAINING_MODE_REASON = 'Notion no conectado';
-            return [];
-        }
+        const token = import.meta.env.VITE_NOTION_TOKEN;
+        if (!token) return [];
 
         try {
-            // Try to fetch from Supabase cache first (faster)
-            // Note: This will fail gracefully if table doesn't exist
-            const { data: cachedDocs, error } = await supabase
-                .from('notion_cache')
-                .select('*')
-                .eq('role', role)
-                .order('last_synced', { ascending: false })
-                .limit(5);
-
-            if (error) {
-                // Table doesn't exist or other error - enter training mode
-                console.warn('[RAG] notion_cache table not found, entering training mode');
-                TRAINING_MODE_ACTIVE = true;
-                TRAINING_MODE_REASON = 'Base de datos en configuración. Ejecuta el schema SQL en Supabase.';
-                return [];
-            }
-
-            if (cachedDocs && cachedDocs.length > 0) {
-                TRAINING_MODE_ACTIVE = false;
-                return cachedDocs.map(doc => ({
-                    id: doc.notion_id,
-                    title: doc.title,
-                    summary: doc.summary || '',
-                    tag: doc.tag || 'General',
-                    lastEdited: new Date(doc.last_synced).toLocaleDateString(),
-                    icon: doc.icon || '📄'
-                }));
-            }
-
-            // No cached data but connected - system is ready, just empty
-            // We do NOT set training mode active here if we want to show "0 documents" instead of "Configuring..."
-            // However, if we want to show "Training Mode" until data is ingested, we keep it true.
-            // User said: "organizar para que muestre información desde su creación en CERO."
-            // This implies 0 state is valid.
-            console.log('[RAG] Connected to DB but no docs found - Zero State');
-            TRAINING_MODE_ACTIVE = false;
-            return [];
-
-        } catch (err) {
-            console.warn('[RAG] Notion/Cache unavailable:', err);
-            TRAINING_MODE_ACTIVE = true;
-            TRAINING_MODE_REASON = 'Error de conexión con base de datos';
+            const { data } = await supabase.from('notion_cache').select('*').eq('role', role).limit(5);
+            return (data || []).map(doc => ({
+                id: doc.notion_id,
+                title: doc.title,
+                summary: doc.summary || '',
+                tag: doc.tag || 'General',
+                lastEdited: new Date(doc.last_synced).toLocaleDateString(),
+                icon: doc.icon || '📄'
+            }));
+        } catch { // Ignore errors for this fallback
             return [];
         }
-    },
-
-    /**
-     * Main dashboard data source - real data or training mode
-     */
-    async getDashboardDocs(role: string): Promise<{ docs: NotionPage[]; trainingMode: boolean; reason: string }> {
-        const docs = await this.getNotionDocs(role);
-
-        return {
-            docs,
-            trainingMode: docs.length === 0,
-            reason: docs.length === 0 ? 'Sistema en fase de entrenamiento. Conecta fuentes de datos para ver información real.' : ''
-        };
     }
 };

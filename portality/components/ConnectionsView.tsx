@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, AlertCircle, Database, Globe, Layers, Clock, Loader2, CheckCircle2, Zap, ArrowRight, Cpu, Activity, HardDrive, Bell, Network } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, AlertCircle, Database, Globe, Layers, Clock, Loader2, CheckCircle2, Zap, ArrowRight as ArrowRightIcon, Cpu, Activity, HardDrive, Bell, Network } from 'lucide-react';
 import { getCurrentBrand } from '../config/branding';
 import { notionService } from '../services/notionService';
 import { supabase } from '../lib/supabase';
@@ -13,7 +13,7 @@ interface Connection {
 }
 
 interface IntegrationStatus {
-    status: 'connected' | 'disconnected' | 'pending';
+    status: 'connected' | 'disconnected' | 'pending' | 'active';
     lastSynced?: string;
     metadata?: Record<string, any>;
 }
@@ -51,14 +51,9 @@ const ConnectionsView: React.FC<{ organizationId: string }> = ({ organizationId 
                 const { data, error } = await supabase
                     .from('organizations')
                     .select('settings')
-                    .eq('id', organizationId) // Assuming organizationId matches DB ID or we need to map slug/id
-                    .single(); // Fallback if ID is slug, we might need a different query or prop
+                    .eq('id', organizationId)
+                    .single();
 
-                // If passed organizationId is a slug (e.g. 'multiversa'), we might need to handle ID mapping
-                // But typically ID should be passed. If it's a slug, we'd need to fetch by slug.
-                // Assuming ID for now based on typical prop usage. 
-                // If query fails (e.g. standard UUID vs slug mismatch), we'll handle gracefully.
-                
                 if (data?.settings?.integrations) {
                     setIntegrationStates(data.settings.integrations);
                 }
@@ -77,7 +72,6 @@ const ConnectionsView: React.FC<{ organizationId: string }> = ({ organizationId 
         setIntegrationStates(newStates);
 
         try {
-            // Fetch current settings first to merge (shallow merge here, but deep merge preferred in real app)
             const { data: currentData } = await supabase
                 .from('organizations')
                 .select('settings')
@@ -116,7 +110,7 @@ const ConnectionsView: React.FC<{ organizationId: string }> = ({ organizationId 
 
             // Success
             await updateIntegrationStatus(id, { 
-                status: 'connected',
+                status: 'active' as const,
                 lastSynced: 'Ahora mismo'
             });
 
@@ -219,7 +213,7 @@ const ConnectionsView: React.FC<{ organizationId: string }> = ({ organizationId 
                                 }`} />
 
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 rounded-xl bg-white/5 text-white group-hover:scale-110 transition-transform duration-500 flex flex-col items-center justify-center gap-1 min-w-[3rem]`}>
+                                    <div className="p-3 rounded-xl bg-white/5 text-white group-hover:scale-110 transition-transform duration-500 flex flex-col items-center justify-center gap-1 min-w-[3rem]">
                                         {conn.icon}
                                         {/* Mobile Label */}
                                         <span className="text-[8px] font-bold uppercase tracking-widest opacity-50 md:hidden">{conn.type.slice(0,3)}</span>
@@ -270,7 +264,7 @@ const ConnectionsView: React.FC<{ organizationId: string }> = ({ organizationId 
                                         ) : (
                                             <>
                                                 {effectiveStatus === 'connected' ? 'Listo' : 'Conectar'}
-                                                {effectiveStatus === 'connected' ? <CheckCircle2 size={14} /> : <ArrowRight size={14} />}
+                                                {effectiveStatus === 'connected' ? <CheckCircle2 size={14} /> : <ArrowRightIcon size={14} />}
                                             </>
                                         )}
                                     </button>
@@ -338,6 +332,3 @@ const ConnectionsView: React.FC<{ organizationId: string }> = ({ organizationId 
 };
 
 export default ConnectionsView;
-
-// Helper icons
-const ArrowRight = ({ size }: { size: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;

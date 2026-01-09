@@ -26,6 +26,7 @@ export interface Task {
   status: 'todo' | 'in-progress' | 'review' | 'done';
   completed: boolean;
   assignedTo?: string; // User ID or Initials
+  assignedToId?: string; // Notion User UUID for robust filtering
   tags?: string[]; // For Kanban context
   clientId?: string;
   serviceId?: string;
@@ -83,6 +84,7 @@ export interface UserProfile {
   theme: string; // Each user can have a preferred accent
   openRouterKey?: string; // Optional: User provided key
   organizationId?: string;
+  notionId?: string; // Linked Notion Team Member ID
   lastActivity?: number; // Timestamp for 90-min session expiry
   layoutConfig?: string[]; // IDs of widgets to display in order
 }
@@ -103,7 +105,7 @@ export interface ThemeColors {
   blob2: string;
 }
 
-export type ViewState = 'home' | 'agency' | 'flow' | 'profile' | 'connections' | 'team' | 'board';
+export type ViewState = 'home' | 'agency' | 'flow' | 'profile' | 'connections' | 'team' | 'board' | 'notion' | 'chat';
 
 export enum AudioState {
   IDLE = 'idle',

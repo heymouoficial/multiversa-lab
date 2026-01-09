@@ -37,6 +37,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     const [isCollapsed, setIsCollapsed] = useState(true); 
     const [isOrgMenuOpen, setIsOrgMenuOpen] = useState(false);
 
+    // Force expanded state on mobile when open
+    const isExpanded = mobileOpen || !isCollapsed;
+
     const menuItems = [
         { id: 'home' as ViewState, label: 'Inicio', icon: <Home size={20} /> },
         { id: 'agency' as ViewState, label: 'Datos', icon: <Folder size={20} /> },
@@ -47,15 +50,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     return (
         <aside 
-            className={`fixed left-0 top-0 bottom-0 ${mobileOpen ? 'flex w-64' : 'hidden md:flex'} flex-col z-50 transition-all duration-300 ease-out bg-[#020203]/90 backdrop-blur-2xl border-r border-white/5 ${
-                isCollapsed && !mobileOpen ? 'w-[72px]' : 'w-60' // Force expand on mobile
+            className={`fixed left-0 top-0 bottom-0 ${mobileOpen ? 'flex w-64' : 'hidden md:flex'} flex-col z-[100] transition-all duration-300 ease-out bg-[#020203]/90 backdrop-blur-2xl border-r border-white/5 ${
+                isCollapsed && !mobileOpen ? 'w-[72px]' : (!mobileOpen ? 'w-60' : '')
             }`}
         >
             {/* HEADER: ORG SWITCHER */}
             <div className="relative">
                 <button 
-                    onClick={() => !isCollapsed && setIsOrgMenuOpen(!isOrgMenuOpen)}
-                    className={`w-full p-4 flex items-center gap-3 border-b border-white/5 hover:bg-white/5 transition-colors ${isCollapsed ? 'justify-center cursor-default' : 'cursor-pointer'}`}
+                    onClick={() => !isExpanded && setIsOrgMenuOpen(!isOrgMenuOpen)}
+                    className={`w-full p-3.5 flex items-center gap-3 border-b border-white/5 hover:bg-white/5 transition-colors ${!isExpanded ? 'justify-center cursor-default' : 'justify-start cursor-pointer'}`}
                 >
                     <div 
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0 shadow-lg shadow-purple-500/10"
@@ -63,19 +66,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                     >
                         {brand.name.charAt(0)}
                     </div>
-                    {!isCollapsed && (
+                    {isExpanded && (
                         <div className="flex-1 overflow-hidden text-left">
                             <h2 className="text-sm font-black tracking-tight text-white truncate">{brand.name}</h2>
                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider truncate">{brand.tagline}</p>
                         </div>
                     )}
-                    {!isCollapsed && (
+                    {isExpanded && (
                         <ChevronsUpDown size={14} className="text-gray-500" />
                     )}
                 </button>
 
                 {/* ORG DROPDOWN */}
-                {isOrgMenuOpen && !isCollapsed && (
+                {isOrgMenuOpen && isExpanded && (
                     <div className="absolute top-full left-2 right-2 mt-1 py-1 rounded-xl bg-[#0A0A0A] border border-white/10 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Organizaciones</div>
                         {organizations.map(org => (
@@ -106,19 +109,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                         key={item.id}
                         onClick={() => onNavigate(item.id)}
                         title={isCollapsed ? item.label : undefined}
-                        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                             activeView === item.id 
                                 ? 'bg-white/10 text-white' 
                                 : 'text-gray-500 hover:text-white hover:bg-white/5'
-                        } ${isCollapsed ? 'justify-center' : ''}`}
+                        } ${!isExpanded ? 'justify-center' : 'justify-start'}`}
                     >
                         <div className={`shrink-0 transition-transform duration-200 ${activeView === item.id ? 'scale-110' : 'group-hover:scale-110'}`}>
                             {item.icon}
                         </div>
-                        {!isCollapsed && (
-                            <span className="text-sm font-semibold tracking-tight truncate">{item.label}</span>
+                        {isExpanded && (
+                            <span className="text-sm font-semibold tracking-tight truncate group-active:scale-95 transition-transform hidden xs:inline">
+                                {item.label}
+                            </span>
                         )}
-                        {!isCollapsed && activeView === item.id && (
+                        {isExpanded && activeView === item.id && (
                             <div 
                                 className="ml-auto w-1.5 h-1.5 rounded-full"
                                 style={{ backgroundColor: brand.colors.primary, boxShadow: `0 0 8px ${brand.colors.primary}` }}
@@ -133,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {/* USER CARD */}
                 <button 
                     onClick={onOpenSettings}
-                    className={`w-full p-2 rounded-xl bg-white/[0.03] border border-white/5 flex items-center gap-2 hover:bg-white/[0.06] transition-all ${isCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full p-1.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center gap-2 hover:bg-white/[0.06] transition-all ${!isExpanded ? 'justify-center' : 'justify-start'}`}
                 >
                     <div className="w-8 h-8 rounded-lg bg-gray-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                         <img 
@@ -142,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             className="w-full h-full object-cover"
                         />
                     </div>
-                    {!isCollapsed && (
+                    {isExpanded && (
                         <div className="flex flex-col overflow-hidden text-left">
                             <span className="text-xs font-bold text-white truncate">{user.name}</span>
                             <span className="text-[9px] text-gray-500 truncate">{user.role}</span>
@@ -151,18 +156,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
 
                 {/* ACTIONS */}
-                <div className={`flex ${isCollapsed ? 'flex-col' : ''} gap-1`}>
+                <div className={`flex ${!isExpanded ? 'flex-col' : ''} gap-1`}>
                     <button 
                         onClick={onOpenSettings}
                         title="Configuración"
-                        className={`flex items-center justify-center p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-500 hover:text-white hover:bg-white/10 transition-all ${isCollapsed ? 'w-full' : 'flex-1'}`}
+                        className={`flex items-center justify-center p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-500 hover:text-white hover:bg-white/10 transition-all ${!isExpanded ? 'w-full' : 'flex-1'}`}
                     >
                         <Settings size={16} />
                     </button>
                     <button 
                         onClick={onLogout}
                         title="Cerrar sesión"
-                        className={`flex items-center justify-center p-2.5 rounded-xl bg-red-500/5 border border-red-500/10 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all ${isCollapsed ? 'w-full' : 'flex-1'}`}
+                        className={`flex items-center justify-center p-2.5 rounded-xl bg-red-500/5 border border-red-500/10 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all ${!isExpanded ? 'w-full' : 'flex-1'}`}
                     >
                         <LogOut size={16} />
                     </button>

@@ -1,0 +1,8 @@
+{
+  "track_id": "portality_core_sync_20260107",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-01-07T12:00:00Z",
+  "updated_at": "2026-01-07T12:00:00Z",
+  "description": "Portality OS Core Integration & Bidirectional Notion Sync"
+}

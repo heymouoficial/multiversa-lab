@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GeminiLiveService } from '../services/geminiLive';
+import { AudioState } from '../types';
 
 interface UseAureonLiveProps {
     onTaskCreate?: (title: string, priority: 'high' | 'medium' | 'low') => void;
     onKnowledgeQuery?: (query: string) => Promise<string>;
+    onOperationalSummary?: () => Promise<string>;
 }
 
-export function useAureonLive({ onTaskCreate, onKnowledgeQuery }: UseAureonLiveProps = {}) {
-    const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+export function useAureonLive({ onTaskCreate, onKnowledgeQuery, onOperationalSummary }: UseAureonLiveProps = {}) {
+    const [status, setStatus] = useState<AudioState>(AudioState.IDLE);
     const [isTalking, setIsTalking] = useState(false);
     const serviceRef = useRef<GeminiLiveService | null>(null);
 
@@ -15,7 +17,7 @@ export function useAureonLive({ onTaskCreate, onKnowledgeQuery }: UseAureonLiveP
     useEffect(() => {
         serviceRef.current = new GeminiLiveService({
             onStateChange: (newState) => {
-                setStatus(newState === 'disconnected' ? 'idle' : newState);
+                setStatus(newState);
             },
             onAudioData: (playing) => {
                 setIsTalking(playing);
@@ -33,6 +35,11 @@ export function useAureonLive({ onTaskCreate, onKnowledgeQuery }: UseAureonLiveP
                     return { result };
                 }
 
+                if (name === 'getOperationalSummary' && onOperationalSummary) {
+                    const result = await onOperationalSummary();
+                    return { summary: result };
+                }
+
                 return { error: 'Tool not implemented in UI' };
             }
         });
@@ -45,9 +52,9 @@ export function useAureonLive({ onTaskCreate, onKnowledgeQuery }: UseAureonLiveP
     const toggleVoice = useCallback(async () => {
         if (!serviceRef.current) return;
 
-        if (status === 'connected' || status === 'connecting') {
+        if (status === AudioState.LISTENING || status === AudioState.SPEAKING || status === AudioState.CONNECTING) {
             serviceRef.current.disconnect();
-            setStatus('idle');
+            setStatus(AudioState.IDLE);
         } else {
             await serviceRef.current.connect();
         }

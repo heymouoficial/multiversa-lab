@@ -4,8 +4,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { geminiService, AureonMessage, UIAction, AureonContext } from '../services/geminiService';
 import { getCurrentBrand } from '../config/branding';
-
-import { Task, ViewState } from '../types';
+import ClientSummaryCard from './ClientSummaryCard';
+import TaskCard from './TaskCard';
+import DataTable from './DataTable';
+import TaskActionCard from './TaskActionCard';
+import TeamAvailabilitySnippet from './TeamAvailabilitySnippet';
+import ServiceDetailCard from './ServiceDetailCard';
+import { notionService } from '../services/notionService';
+import { Client, Task, Service, ViewState } from '../types';
 
 interface FloatingChatProps {
     tasks?: Task[];
@@ -20,6 +26,47 @@ interface FloatingChatProps {
         hostinger?: 'connected' | 'disconnected';
     };
 }
+
+const ClientSummaryLoader: React.FC<{ clientId: string; activeTasks: Task[] }> = ({ clientId, activeTasks }) => {
+    const [client, setClient] = useState<Client | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetch = async () => {
+            // For demo/alpha, we fetch all and find. In prod, fetch specific.
+            try {
+                const clients = await notionService.getClients();
+                // Improved fuzzy matching for demo
+                const found = clients.find(c => 
+                    c.id === clientId || 
+                    c.name.toLowerCase().includes(clientId.toLowerCase()) || 
+                    (c.notion_id && c.notion_id === clientId)
+                );
+                setClient(found || null);
+            } catch (e) {
+                console.error("Error fetching client for summary:", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetch();
+    }, [clientId]);
+
+    if (loading) return <div className="p-4 flex justify-center"><Loader2 className="animate-spin text-emerald-400" size={24} /></div>;
+    if (!client) return (
+        <div className="p-4 text-xs text-rose-400 bg-rose-500/10 rounded-lg border border-rose-500/20">
+            Cliente "{clientId}" no encontrado en Notion.
+            <br/><span className="opacity-50">Intenta con el nombre exacto.</span>
+        </div>
+    );
+
+    // Filter tasks for this client
+    // We assume tasks passed to FloatingChat are all active tasks. 
+    // We need to match task.clientId to client.id or client.notion_id
+    const clientTasks = activeTasks.filter(t => t.clientId === client.id || t.clientId === client.notion_id);
+
+    return <div className="mt-4"><ClientSummaryCard client={client} activeTasks={clientTasks} /></div>;
+};
 
 const FloatingChat: React.FC<FloatingChatProps> = ({ 
     tasks = [],
@@ -82,6 +129,10 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
             };
 
             const response = await geminiService.chat(inputValue, context);
+            console.log('🤖 [Aureon] Response:', response);
+            if (response.actions && response.actions.length > 0) {
+                console.log('⚡ [Aureon] Actions detected:', response.actions);
+            }
             setMessages(prev => [...prev, response]);
         } catch (error) {
             setMessages(prev => [...prev, {
@@ -102,37 +153,40 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
                     ? tasks.filter(t => !t.completed)
                     : tasks;
                 return (
-                    <div className="mt-3 p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-gray-400 uppercase">Tareas</span>
-                            <span className="text-xs text-gray-500">{filteredTasks.length} items</span>
+                    <div className="mt-3 space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Sincronización Notion</span>
+                            <span className="text-[10px] font-bold text-emerald-400/70">{filteredTasks.length} ITEMS</span>
                         </div>
-                        <div className="space-y-1.5">
-                            {filteredTasks.slice(0, 5).map(task => (
-                                <div 
-                                    key={task.id}
-                                    className="flex items-center gap-2 p-2 rounded-lg bg-black/30 hover:bg-white/5 transition-colors cursor-pointer"
-                                >
-                                    {task.completed ? (
-                                        <CheckCircle2 size={14} className="text-green-500 shrink-0" />
-                                    ) : (
-                                        <Clock size={14} className="text-amber-500 shrink-0" />
-                                    )}
-                                    <span className="text-sm text-white truncate flex-1">{task.title}</span>
-                                    <span className="text-[10px] text-gray-500">{task.assignedTo}</span>
-                                </div>
-                            ))}
-                        </div>
-                        {filteredTasks.length > 5 && (
+                        {filteredTasks.slice(0, 3).map(task => (
+                            <TaskCard 
+                                key={task.id} 
+                                task={task} 
+                                onToggle={(id) => {
+                                    // Handle task toggle if passed through props, or just use notionService
+                                    console.log('Toggling task', id);
+                                }}
+                            />
+                        ))}
+                        {filteredTasks.length > 3 && (
                             <button 
                                 onClick={() => onNavigate?.('agency')}
-                                className="w-full mt-2 py-1.5 text-xs text-center rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                                style={{ color: brand.colors.primary }}
+                                className="w-full py-2.5 text-[10px] font-black uppercase tracking-widest text-center rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white"
                             >
-                                Ver todas ({filteredTasks.length})
+                                Ver todas las tareas ({filteredTasks.length})
                             </button>
                         )}
                     </div>
+                );
+
+            case 'data_table':
+                return (
+                    <DataTable 
+                        title={action.data?.title}
+                        headers={action.data?.headers || []}
+                        rows={action.data?.rows || []}
+                        icon={<Database size={14} />}
+                    />
                 );
 
             case 'confirm_task':
@@ -207,6 +261,42 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
                     </div>
                 );
 
+            case 'client_summary':
+                console.log('📦 [FloatingChat] Rendering ClientSummary for:', action.data?.clientId);
+                return <ClientSummaryLoader clientId={action.data?.clientId || ''} activeTasks={tasks} />;
+
+            case 'task_action':
+                const actionTask = tasks.find(t => t.id === action.data?.taskId || t.title.toLowerCase().includes(action.data?.taskId?.toLowerCase()));
+                if (!actionTask) return <p className="text-[10px] text-gray-500 p-2 italic">Tarea "{action.data?.taskId}" no identificada.</p>;
+                return (
+                    <TaskActionCard 
+                        task={actionTask} 
+                        onComplete={(id) => console.log('✅ [Chat] Completing task:', id)} 
+                        onDelete={(id) => console.log('🗑️ [Chat] Deleting task:', id)} 
+                    />
+                );
+
+            case 'team_availability':
+                return (
+                    <TeamAvailabilitySnippet 
+                        name={action.data?.name || 'Miembro'}
+                        role={action.data?.role || 'Especialista'}
+                        taskCount={action.data?.taskCount || 0}
+                        status={action.data?.status || 'offline'}
+                    />
+                );
+
+            case 'service_detail':
+                // For demo, we create a temporary service object if not found
+                const service: Service = {
+                    id: action.data?.serviceId || 's1',
+                    name: action.data?.serviceId || 'Servicio Desconocido',
+                    clientId: '',
+                    responsibleId: 'CM',
+                    frequency: 'monthly'
+                };
+                return <ServiceDetailCard service={service} clientName="Cliente Vinculado" />;
+
             default:
                 return null;
         }
@@ -218,7 +308,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-105 active:scale-95 overflow-hidden border-2 border-white/20"
+                    className="fixed bottom-4 right-4 z-30 w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-105 active:scale-95 overflow-hidden border-2 border-white/20"
                     style={{ 
                         boxShadow: `0 8px 32px ${brand.colors.primary}40, 0 0 60px ${brand.colors.accent}20`
                     }}
@@ -229,7 +319,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({
 
             {/* CHAT PANEL */}
             {isOpen && (
-                <div className="fixed bottom-6 right-6 z-50 w-[360px] md:w-[420px] bg-[#0a0a0b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 max-h-[70vh]">
+                <div className="fixed bottom-4 right-4 z-30 w-[calc(100vw-32px)] md:w-[420px] bg-[#0a0a0b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 max-h-[70vh]">
                     {/* HEADER */}
                     <div 
                         className="p-4 flex items-center justify-between border-b border-white/5 shrink-0"

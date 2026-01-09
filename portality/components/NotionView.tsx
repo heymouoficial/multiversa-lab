@@ -35,6 +35,12 @@ const NotionView: React.FC<NotionViewProps> = ({ clients, services, tasks, onTog
         t.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Filter tasks by current user for the 'Tareas' tab focus
+    const myTasks = tasks.filter(t => 
+        (t.assignedTo === searchQuery) || // Allows searching for others
+        (t.assignedTo && (t.assignedTo.includes('Christian') || t.assignedTo.includes('Andrea'))) // Placeholder for session filter in this view if needed
+    );
+
     return (
         <div className="p-6 md:p-8 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* HEADER */}

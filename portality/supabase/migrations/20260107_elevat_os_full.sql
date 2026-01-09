@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
 
 -- 4. Knowledge Base (RAG Core)
 CREATE TABLE IF NOT EXISTS public.documents (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
   file_type text NOT NULL,
   content text,
@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone DEFAULT now(),
   title text NOT NULL,
+  notion_id text UNIQUE,
   priority text DEFAULT 'medium'::text CHECK (priority = ANY (ARRAY['high'::text, 'medium'::text, 'low'::text])),
   status text DEFAULT 'todo'::text CHECK (status = ANY (ARRAY['todo'::text, 'in-progress'::text, 'review'::text, 'done'::text])),
   completed boolean DEFAULT false,
@@ -112,7 +113,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
 
 -- 6. Chat & Memory (Aureon Brain)
 CREATE TABLE IF NOT EXISTS public.chat_sessions (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title text DEFAULT 'New Conversation'::text,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
@@ -123,7 +124,7 @@ CREATE TABLE IF NOT EXISTS public.chat_sessions (
 );
 
 CREATE TABLE IF NOT EXISTS public.chat_messages (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL,
   role text NOT NULL CHECK (role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])),
   content text NOT NULL,
@@ -134,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 );
 
 CREATE TABLE IF NOT EXISTS public.agent_memory (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   agent_name text NOT NULL,
   memory_type text NOT NULL,
   content text NOT NULL,

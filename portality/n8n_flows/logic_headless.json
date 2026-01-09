@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aureon-gateway",
+        "options": {}
+      },
+      "name": "Webhook_Portality_App",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 200],
+      "notes": "Entrada principal desde el Dashboard LiquidGlass"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT email, notion_id, role FROM profiles WHERE telegram_id = :id OR user_id = :id",
+        "queryParams": "id={{$json.userId}}"
+      },
+      "name": "Supabase_Identity_Check",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [300, 200],
+      "notes": "Punto de Auditoría: Mapeo de Seguridad RLS"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Eres Aureon, el SmartOS de Elevat. Usuario actual: {{ $node[\"Supabase_Identity_Check\"].json[\"email\"] }}. Tienes acceso a Notion, Google Workspace y Supabase RAG."
+        }
+      },
+      "name": "Aureon_AI_Agent",
+      "type": "n8n-nodes-base.aiAgent",
+      "typeVersion": 1,
+      "position": [550, 200],
+      "notes": "Orquestador Maestro desacoplado"
+    }
+  ]
+}

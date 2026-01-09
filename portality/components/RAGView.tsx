@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../lib/supabase';
 import { getCurrentBrand } from '../config/branding';
+import { ragService } from '../services/ragService';
 
 interface KnowledgeDoc {
     id: number;
@@ -29,8 +30,15 @@ const RAGView: React.FC<RAGViewProps> = ({ organizationId }) => {
     const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const isMounted = React.useRef(true);
 
     const [uploadStatus, setUploadStatus] = useState<string>('');
+
+    useEffect(() => {
+        isMounted.current = true;
+        return () => { isMounted.current = false; };
+    }, []);
 
     // Fetch documents from Supabase (NEW TABLE)
     useEffect(() => {
@@ -39,32 +47,41 @@ const RAGView: React.FC<RAGViewProps> = ({ organizationId }) => {
 
     const fetchDocuments = async () => {
         setIsLoading(true);
+        setError(null);
         try {
-            // Fetch from DOCUMENTS table (Real Schema)
-            const { data, error } = await supabase
-                .from('documents')
-                .select('*')
-                // .eq('organization_id', organizationId) // Uncomment if documents has org_id in schema, otherwise it might be global or RLS handled
-                .order('created_at', { ascending: false });
+            // Safety timeout wrapper
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 5000)
+            );
+
+            // Fetch with timeout
+            const sources = await Promise.race([
+                ragService.getSources().catch(e => {
+                    console.warn('RAG service failed, using memory fallback:', e);
+                    return [] as any[];
+                }),
+                timeoutPromise
+            ]) as any[];
             
-            if (error) throw error;
-            
-            // Map to KnowledgeDoc interface
-            const mapped: KnowledgeDoc[] = (data || []).map(d => ({
-                id: d.id,
-                source: d.name,
-                content: d.content || '',
+            if (!isMounted.current) return;
+
+            const mapped: KnowledgeDoc[] = sources.map(s => ({
+                id: parseInt(s.id) || Date.now() + Math.random(),
+                source: s.name,
+                content: s.content || '',
                 tenant_id: organizationId || 'default',
-                meta: d.metadata || { category: 'general' },
-                created_at: d.created_at,
-                updated_at: d.created_at
+                meta: s.metadata || { category: 'general' },
+                created_at: s.lastSynced instanceof Date ? s.lastSynced.toISOString() : (s.lastSynced || new Date().toISOString()),
+                updated_at: s.lastSynced instanceof Date ? s.lastSynced.toISOString() : (s.lastSynced || new Date().toISOString())
             }));
 
             setDocuments(mapped);
-        } catch (err) {
-            console.error('[RAG] Error fetching docs:', err);
+        } catch (err: any) {
+            console.error('[RAG] Fatal Error:', err);
+            if (isMounted.current) setError(err.message || 'Error loading documents');
+            if (isMounted.current) setDocuments([]); 
         } finally {
-            setIsLoading(false);
+            if (isMounted.current) setIsLoading(false);
         }
     };
 
@@ -134,7 +151,7 @@ const RAGView: React.FC<RAGViewProps> = ({ organizationId }) => {
                      <label className="cursor-pointer px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl flex items-center gap-2 text-sm font-medium text-white transition-all">
                         <Upload size={16} />
                         Subir Documento
-                        <input type="file" className="hidden" onChange={handleFileUpload} accept=".md,.txt,.json" />
+                        <input type="file" className="hidden" onChange={handleFileUpload} accept=".md,.txt,.json,.pdf,.docx" />
                     </label>
 
                     <button 
@@ -201,6 +218,13 @@ const RAGView: React.FC<RAGViewProps> = ({ organizationId }) => {
                         <div className="p-8 text-center">
                             <RefreshCw size={24} className="mx-auto mb-3 text-gray-600 animate-spin" />
                             <p className="text-sm text-gray-500">Cargando documentos...</p>
+                        </div>
+                    ) : error ? (
+                         <div className="p-12 text-center text-red-400">
+                            <Database size={40} className="mx-auto mb-4 opacity-50" />
+                            <p className="text-sm font-medium mb-2">Error de Conexión</p>
+                            <p className="text-xs opacity-70">{error}</p>
+                            <button onClick={fetchDocuments} className="mt-4 px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-xs">Reintentar</button>
                         </div>
                     ) : filteredDocs.length > 0 ? (
                         filteredDocs.map((doc) => (

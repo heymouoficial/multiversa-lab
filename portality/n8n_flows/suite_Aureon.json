@@ -1,0 +1,87 @@
+{
+  "name": "Aureon_Master_Orchestrator_Alpha_2.0",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aureon-gateway",
+        "options": {}
+      },
+      "name": "Webhook_App_Portality",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 240],
+      "notesInFlow": true,
+      "notes": "Trigger desde el Dashboard en Vercel"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "name": "Telegram_Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [0, 440],
+      "notesInFlow": true,
+      "notes": "Trigger para acceso móvil"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT email, notion_id, role FROM public.profiles WHERE user_id = :id OR telegram_id = :tid",
+        "queryParams": "id={{$json.userId}}, tid={{$json.message.from.id}}"
+      },
+      "name": "Supabase_Identity_Check",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [260, 340],
+      "notesInFlow": true,
+      "notes": "AUDITORÍA: Valida permisos y recupera el notion_id del usuario logueado"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Eres Aureon, el SmartOS de Elevat. Contexto: Alpha 2.0. Usuario actual: {{ $node[\"Supabase_Identity_Check\"].json[\"email\"] }}. NotionID vinculada: {{ $node[\"Supabase_Identity_Check\"].json[\"notion_id\"] }}. Si el usuario pide algo de Notion, usa la herramienta Edge_Function_Proxy."
+        }
+      },
+      "name": "Aureon_AI_Agent",
+      "type": "n8n-nodes-base.aiAgent",
+      "typeVersion": 1,
+      "position": [520, 340],
+      "notesInFlow": true,
+      "notes": "CEREBRO: Orquesta herramientas según la intención del usuario"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://multiversa.supabase.co/functions/v1/notion-api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer [[TU_SUPABASE_ANON_KEY]]" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "action", "value": "query_database" },
+            { "name": "notion_id", "value": "={{$node[\"Supabase_Identity_Check\"].json[\"notion_id\"]}}" }
+          ]
+        }
+      },
+      "name": "Edge_Function_Proxy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [800, 340],
+      "notesInFlow": true,
+      "notes": "ACCIÓN: Conexión segura con la Notion API a través de Supabase"
+    }
+  ],
+  "connections": {
+    "Webhook_App_Portality": { "main": [ [ { "node": "Supabase_Identity_Check", "type": "main", "index": 0 } ] ] },
+    "Telegram_Trigger": { "main": [ [ { "node": "Supabase_Identity_Check", "type": "main", "index": 0 } ] ] },
+    "Supabase_Identity_Check": { "main": [ [ { "node": "Aureon_AI_Agent", "type": "main", "index": 0 } ] ] }
+  }
+}

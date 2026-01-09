@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
     Sun, Moon, Monitor, X, Users, Shield, Key, Copy, Plus, Building2,
-    Eye, EyeOff, Database, Brain, Plug, BarChart, Check, AlertCircle, Loader2
+    Eye, EyeOff, Database, Brain, Plug, BarChart, Check, AlertCircle, Loader2, Lock
 } from 'lucide-react';
 import { THEMES } from '../constants';
 import { API_KEYS_CONFIG, getAPIKeyValues, maskAPIKey, API_KEY_CATEGORIES } from '../config/apiKeys';
@@ -45,6 +45,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     // Real Data State
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loadingTeam, setLoadingTeam] = useState(false);
+
+    // Password Update State
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loadingPassword, setLoadingPassword] = useState(false);
+    const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const apiKeyValues = useMemo(() => getAPIKeyValues(), []);
 
@@ -104,6 +110,37 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         await navigator.clipboard.writeText(value);
         setCopiedKey(keyId);
         setTimeout(() => setCopiedKey(null), 2000);
+    };
+
+    const handleUpdatePassword = async () => {
+        if (!newPassword) {
+             setPasswordMessage({ type: 'error', text: 'Ingresa una contraseña' });
+             return;
+        }
+        if (newPassword !== confirmPassword) {
+            setPasswordMessage({ type: 'error', text: 'Las contraseñas no coinciden' });
+            return;
+        }
+        if (newPassword.length < 6) {
+             setPasswordMessage({ type: 'error', text: 'Mínimo 6 caracteres' });
+             return;
+        }
+
+        setLoadingPassword(true);
+        setPasswordMessage(null);
+
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setPasswordMessage({ type: 'success', text: 'Contraseña actualizada correctamente' });
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err: any) {
+            console.error('Password update error:', err);
+            setPasswordMessage({ type: 'error', text: err.message || 'Error al actualizar' });
+        } finally {
+            setLoadingPassword(false);
+        }
     };
 
     const getCategoryIcon = (category: string) => {
@@ -178,7 +215,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                     {activeTab === 'general' && (
                         <>
-                            {/* Theme Toggle */}
+                                    {/* Theme Toggle */}
                             <div>
                                 <span className="text-xs font-bold text-gray-500 mb-3 block uppercase tracking-wider">Apariencia</span>
                                 <div className="flex p-1 bg-black rounded-xl border border-white/10">
@@ -194,6 +231,60 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             {mode.charAt(0).toUpperCase() + mode.slice(1)}
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+
+                            {/* Password Update Section */}
+                            <div className="pt-6 border-t border-white/5">
+                                <span className="text-xs font-bold text-gray-500 mb-3 block uppercase tracking-wider">Seguridad</span>
+                                <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-4">
+                                    <div className="flex items-start gap-3 mb-2">
+                                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                                            <Lock size={18} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white">Contraseña</h4>
+                                            <p className="text-xs text-gray-500">Establece o actualiza tu contraseña de acceso.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <input 
+                                                type="password" 
+                                                placeholder="Nueva contraseña"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <input 
+                                                type="password" 
+                                                placeholder="Confirmar contraseña"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                            />
+                                        </div>
+
+                                        {passwordMessage && (
+                                            <div className={`text-xs px-3 py-2 rounded-lg ${
+                                                passwordMessage.type === 'success' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                                            }`}>
+                                                {passwordMessage.text}
+                                            </div>
+                                        )}
+
+                                        <button 
+                                            onClick={handleUpdatePassword}
+                                            disabled={loadingPassword || !newPassword}
+                                            className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2"
+                                        >
+                                            {loadingPassword && <Loader2 size={14} className="animate-spin" />}
+                                            Actualizar Contraseña
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

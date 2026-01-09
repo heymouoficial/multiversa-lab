@@ -2,8 +2,10 @@ import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } f
 import { GEMINI_LIVE_MODEL, SYSTEM_INSTRUCTION } from "../constants";
 import { float32ToInt16, arrayBufferToBase64, base64ToArrayBuffer, pcmToAudioBuffer } from "../utils/audioUtils";
 
+import { AudioState } from "../types";
+
 interface LiveSessionCallbacks {
-  onStateChange: (state: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  onStateChange: (state: AudioState) => void;
   onAudioData?: (isPlaying: boolean) => void;
   onToolCall?: (name: string, args: any) => Promise<any>;
 }
@@ -22,7 +24,17 @@ const createTaskTool: FunctionDeclaration = {
   }
 };
 
-// Tool: RAG Query
+// Tool: Operational Summary
+const getOperationalSummaryTool: FunctionDeclaration = {
+  name: 'getOperationalSummary',
+  description: 'Get a summary of the current operational state, including client count, pending tasks, and today\'s focuses.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {},
+    required: []
+  }
+};
+
 const queryKnowledgeBaseTool: FunctionDeclaration = {
   name: 'queryKnowledgeBase',
   description: 'Search the internal Elevat/Multiversa database for specific information, documents, or strategic context.',
@@ -35,6 +47,8 @@ const queryKnowledgeBaseTool: FunctionDeclaration = {
   }
 };
 
+import { geminiKeyManager } from "../utils/geminiKeyManager";
+
 export class GeminiLiveService {
   private client: GoogleGenAI;
   private session: any = null;
@@ -46,43 +60,62 @@ export class GeminiLiveService {
   private nextStartTime: number = 0;
   private callbacks: LiveSessionCallbacks;
   private gainNode: GainNode | null = null;
+  private currentKey: string | null = null;
 
   constructor(callbacks: LiveSessionCallbacks) {
-    this.client = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+    this.currentKey = geminiKeyManager.getKey();
+    this.client = new GoogleGenAI({ apiKey: this.currentKey || '' });
     this.callbacks = callbacks;
   }
 
   async connect() {
-    this.callbacks.onStateChange('connecting');
+    this.callbacks.onStateChange(AudioState.CONNECTING);
 
     try {
+      // Re-initialize client with a fresh key if previous one failed
+      this.currentKey = geminiKeyManager.getKey();
+      this.client = new GoogleGenAI({ apiKey: this.currentKey || '' });
+
       this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       await this.inputAudioContext.audioWorklet.addModule('/pcm-processor.js');
 
       this.outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
 
+      // Explicitly resume contexts (required by many browsers)
+      if (this.inputAudioContext.state === 'suspended') await this.inputAudioContext.resume();
+      if (this.outputAudioContext.state === 'suspended') await this.outputAudioContext.resume();
+
       // Create Gain Node to boost volume
       this.gainNode = this.outputAudioContext.createGain();
-      this.gainNode.gain.value = 3.0; // Boost volume by 300%
+      this.gainNode.gain.value = 3.0; 
       this.gainNode.connect(this.outputAudioContext.destination);
 
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const constraints = {
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      };
+
+      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
 
       const sessionPromise = this.client.live.connect({
         model: GEMINI_LIVE_MODEL,
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            // Charon is a deep male voice suitable for a system persona
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoide' } }, // Aoide is often clearer/more melodic
           },
           systemInstruction: SYSTEM_INSTRUCTION,
-          tools: [{ functionDeclarations: [createTaskTool, queryKnowledgeBaseTool] }],
+          tools: [{ functionDeclarations: [createTaskTool, queryKnowledgeBaseTool, getOperationalSummaryTool] }],
         },
         callbacks: {
           onopen: () => {
-            console.log("Gemini Live Session Opened");
-            this.callbacks.onStateChange('connected');
+            console.log("Gemini Live Session Opened with key:", this.currentKey?.slice(0, 5));
+            this.callbacks.onStateChange(AudioState.LISTENING);
             this.startAudioStreaming(sessionPromise);
           },
           onmessage: async (message: LiveServerMessage) => {
@@ -90,12 +123,13 @@ export class GeminiLiveService {
           },
           onclose: (event) => {
             console.log("Gemini Live Session Closed", event);
-            this.callbacks.onStateChange('disconnected');
+            this.callbacks.onStateChange(AudioState.IDLE);
             this.disconnect();
           },
           onerror: (error) => {
             console.error("Gemini Live Session Error", error);
-            this.callbacks.onStateChange('error');
+            if (this.currentKey) geminiKeyManager.reportError(this.currentKey);
+            this.callbacks.onStateChange(AudioState.ERROR);
             this.disconnect();
           },
         },
@@ -105,7 +139,8 @@ export class GeminiLiveService {
 
     } catch (error) {
       console.error("Failed to connect to Gemini Live:", error);
-      this.callbacks.onStateChange('error');
+      if (this.currentKey) geminiKeyManager.reportError(this.currentKey);
+      this.callbacks.onStateChange(AudioState.ERROR);
       this.disconnect();
     }
   }
@@ -141,6 +176,7 @@ export class GeminiLiveService {
     const serverContent = message.serverContent;
 
     if (serverContent?.modelTurn?.parts?.[0]?.inlineData) {
+      this.callbacks.onStateChange(AudioState.SPEAKING);
       this.callbacks.onAudioData?.(true);
       const base64Audio = serverContent.modelTurn.parts[0].inlineData.data;
       await this.playAudioChunk(base64Audio);
@@ -179,6 +215,7 @@ export class GeminiLiveService {
     }
 
     if (serverContent?.turnComplete) {
+      this.callbacks.onStateChange(AudioState.LISTENING);
       this.callbacks.onAudioData?.(false);
     }
   }

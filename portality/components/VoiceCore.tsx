@@ -20,14 +20,14 @@ const VoiceCore: React.FC<VoiceCoreProps> = ({ onStateChange, onTaskCreate, curr
       onStateChange(AudioState.CONNECTING);
 
       liveServiceRef.current = new GeminiLiveService({
-        onStateChange: (connectionState) => {
-          if (connectionState === 'connected') {
+        onStateChange: (connectionState: AudioState) => {
+          if (connectionState === AudioState.LISTENING) {
             setAudioState(AudioState.LISTENING);
             onStateChange(AudioState.LISTENING);
-          } else if (connectionState === 'disconnected') {
+          } else if (connectionState === AudioState.IDLE) {
             setAudioState(AudioState.IDLE);
             onStateChange(AudioState.IDLE);
-          } else if (connectionState === 'error') {
+          } else if (connectionState === AudioState.ERROR) {
             setAudioState(AudioState.ERROR);
             onStateChange(AudioState.ERROR);
           }

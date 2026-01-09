@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { notionService } from '../services/notionStub';
+import { notionService } from '../services/notionService';
 import { Client, Task } from '../types';
 import { 
-  User, Briefcase, CheckSquare, AlertTriangle, 
+  User, Briefcase, CheckSquare, 
   Clock, Calendar, Zap, LayoutGrid, Database, 
-  Settings, LogOut, ChevronRight, Plus, Target,
-  Mic
+  LogOut, Target, Mic, Plus
 } from 'lucide-react';
 
 interface AgencyDashboardProps {
@@ -16,20 +15,21 @@ interface AgencyDashboardProps {
 }
 
 export const AgencyDashboard: React.FC<AgencyDashboardProps> = ({ user, tasks, clients, onNavigate }) => {
-  const [stats, setStats] = useState<any>(null);
   const [team, setTeam] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const loadStats = async () => {
+    const loadRealData = async () => {
       setIsSyncing(true);
-      const s = await notionService.getStats();
-      const tm = await notionService.getTeam();
-      setStats(s);
-      setTeam(tm);
+      try {
+        const tm = await notionService.getTeam();
+        setTeam(tm);
+      } catch (e) {
+        console.error("Failed to load team", e);
+      }
       setTimeout(() => setIsSyncing(false), 800);
     };
-    loadStats();
+    loadRealData();
   }, []);
 
   return (
@@ -92,7 +92,7 @@ export const AgencyDashboard: React.FC<AgencyDashboardProps> = ({ user, tasks, c
                 { label: 'Hub Operativo', icon: <Target size={18} />, status: 'Online', view: 'home' },
                 { label: 'Clientes 2026', icon: <User size={18} />, status: `${clients.length} Activos`, view: 'agency' },
                 { label: 'Tareas Ops', icon: <CheckSquare size={18} />, status: `${tasks.length} Pendientes`, view: 'board' },
-                { label: 'Equipo', icon: <Database size={18} />, status: 'Andrea & Christian', view: 'agency' }
+                { label: 'Equipo', icon: <Database size={18} />, status: team.map(t => t.name.split(' ')[0]).join(' & ') || 'Cargando...', view: 'agency' }
               ].map((item, i) => (
                 <button 
                   key={i} 

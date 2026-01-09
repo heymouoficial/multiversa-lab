@@ -4,7 +4,7 @@ import {
     Monitor, HardDrive, Network, Globe,
     ChevronDown, Bell, Clock
 } from 'lucide-react';
-import { UserProfile } from '../types';
+import { UserProfile, ViewState } from '../types';
 import { getCurrentBrand } from '../config/branding';
 import { vpsService, VPSMetrics } from '../services/vpsService';
 
@@ -57,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ user, onMobileMenuToggle, isMobileMenuO
     };
 
     return (
-        <header className="fixed top-0 right-0 left-0 md:left-[72px] h-12 z-40 px-6 flex justify-between items-center bg-white/[0.01] backdrop-blur-[40px] border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.1)] select-none overflow-hidden">
+        <header className="fixed top-0 right-0 left-0 md:left-[72px] h-12 z-20 px-6 flex justify-between items-center bg-white/[0.01] backdrop-blur-[40px] border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.1)] select-none overflow-hidden">
             {/* LIQUID GLASS GLARE */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent pointer-events-none"></div>
             {/* LEFT: SYSTEM STATUS / BREADCRUMBS */}

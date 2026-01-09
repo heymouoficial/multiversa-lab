@@ -64,7 +64,7 @@ const TeamView: React.FC<{ organizationId: string }> = ({ organizationId }) => {
                         name: item.profiles?.full_name || 'Usuario',
                         email: item.profiles?.email || '',
                         role: (item.roles || 'Member') as 'Owner' | 'Admin' | 'Member', // Use org role preferably
-                        status: 'active',
+                        status: 'active' as 'active' | 'pending',
                         avatar: item.profiles?.full_name?.charAt(0) || 'U'
                     }));
                     setMembers(mappedMembers);

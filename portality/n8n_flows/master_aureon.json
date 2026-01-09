@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aureon-core-gateway",
+        "options": {}
+      },
+      "name": "Webhook_Portality",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "notes": "Entrada desde Vercel Frontend (Alpha 2.0)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT email, notion_id, role FROM profiles WHERE user_id = :id OR telegram_id = :id",
+        "queryParams": "id={{$json.userId || $json.message.from.id}}"
+      },
+      "name": "Supabase_Identity_Mapping",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [320, 300],
+      "notes": "Auditoría: Vinculación crítica auth.uid -> notion_id"
+    },
+    {
+      "parameters": {
+        "model": "gemini-1.5-flash",
+        "options": {
+          "systemMessage": "Eres Aureon. Contexto: Portality Alpha 2.0. Usuario: {{ $node[\"Supabase_Identity_Mapping\"].json[\"email\"] }}. NotionID: {{ $node[\"Supabase_Identity_Mapping\"].json[\"notion_id\"] }}. Usa la Edge Function para Notion."
+        }
+      },
+      "name": "Aureon_AI_Agent",
+      "type": "n8n-nodes-base.aiAgent",
+      "typeVersion": 1,
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://multiversa.supabase.co/functions/v1/notion-api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SUPABASE_ANON_KEY" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "action", "value": "query_database" },
+            { "name": "notion_id", "value": "={{$node[\"Supabase_Identity_Mapping\"].json[\"notion_id\"]}}" }
+          ]
+        }
+      },
+      "name": "Proxy_Edge_Function",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 200],
+      "notes": "Proxy seguro para Notion API (No rompe el vínculo)"
+    }
+  ],
+  "connections": {
+    "Webhook_Portality": { "main": [ [ { "node": "Supabase_Identity_Mapping", "type": "main", "index": 0 } ] ] },
+    "Supabase_Identity_Mapping": { "main": [ [ { "node": "Aureon_AI_Agent", "type": "main", "index": 0 } ] ] }
+  }
+}

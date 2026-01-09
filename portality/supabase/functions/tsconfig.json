@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.unstable", "esnext"],
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "node",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true
+  },
+  "include": ["./**/*.ts"]
+}
